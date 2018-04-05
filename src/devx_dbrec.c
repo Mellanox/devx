@@ -144,7 +144,7 @@ void devx_free_dbrec(void *ctx, void *db)
 		if (page->next)
 			page->next->prev = page->prev;
 
-		devx_umem_unreg(page->mem);
+		devx_umem_dereg(page->mem);
 		free(page->buf);
 		free(page);
 	}

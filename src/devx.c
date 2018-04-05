@@ -68,7 +68,7 @@ int devx_obj_destroy(struct devx_obj_handle *obj)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX_OBJ,
-			       MLX5_IB_ATTR_DESTROY_DEVX_OBJ_HANDLE,
+			       MLX5_IB_METHOD_OBJ_DEVX_DESTROY,
 			       1);
 
 	fill_attr_in_obj(cmd, MLX5_IB_ATTR_DESTROY_DEVX_OBJ_HANDLE, obj->handle);
@@ -111,11 +111,11 @@ err:
 	return NULL;
 }
 
-int devx_umem_unreg(struct devx_obj_handle *obj)
+int devx_umem_dereg(struct devx_obj_handle *obj)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX_UMEM,
-			       MLX5_IB_METHOD_UMEM_DEVX_REG,
+			       MLX5_IB_METHOD_UMEM_DEVX_DEREG,
 			       1);
 
 	fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEREG_UMEM_DEVX_HANDLE, obj->handle);
