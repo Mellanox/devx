@@ -41,7 +41,7 @@ struct devx_obj_handle *devx_umem_reg(void *ctx,
 				      void *addr, size_t size,
 				      int access,
 				      uint32_t *id);
-int devx_umem_unreg(struct devx_obj_handle *obj);
+int devx_umem_dereg(struct devx_obj_handle *obj);
 
 struct devx_obj_handle *devx_fs_rule_add(void *ctx,
 					 void *in, uint32_t inlen);
