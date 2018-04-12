@@ -537,7 +537,7 @@ TEST(devx, send) {
 
 	uint32_t uar_id;
 	void *uar_ptr = NULL;
-	ret = devx_alloc_uar(ctx, &uar_id, &uar_ptr);
+	ret = devx_alloc_uar(ctx, &uar_id, &uar_ptr, NULL);
 	ASSERT_FALSE(ret);
 
 	int pd = alloc_pd(ctx);
@@ -613,7 +613,7 @@ TEST(devx, send_verbs_mr) {
 
 	uint32_t uar_id;
 	void *uar_ptr = NULL;
-	ret = devx_alloc_uar(ctx, &uar_id, &uar_ptr);
+	ret = devx_alloc_uar(ctx, &uar_id, &uar_ptr, NULL);
 	ASSERT_FALSE(ret);
 
 	struct ibv_pd *pd = ibv_alloc_pd(ibctx);

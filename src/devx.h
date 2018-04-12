@@ -25,7 +25,7 @@ int devx_cmd(void *ctx,
 	     void *in, size_t inlen,
 	     void *out, size_t outlen);
 
-int devx_alloc_uar(void *ctx, uint32_t *idx, void **addr);
+int devx_alloc_uar(void *ctx, uint32_t *idx, void **addr, off_t *off);
 void devx_free_uar(void *ctx, void* addr);
 
 int devx_query_eqn(void *ctx, uint32_t vector, uint32_t *eqn);
