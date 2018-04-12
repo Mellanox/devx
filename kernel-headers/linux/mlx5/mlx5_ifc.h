@@ -1098,10 +1098,8 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         device_frequency_mhz[0x20];
 	u8         device_frequency_khz[0x20];
 
-	u8         reserved_at_500[0x1e];
-	u8         uctx[0x1];
-	u8         umem[0x1];
-	u8         num_of_uars_per_page[0x20];
+	u8         reserved_at_500[0x20];
+	u8	   num_of_uars_per_page[0x20];
 	u8         reserved_at_540[0x40];
 
 	u8         reserved_at_580[0x3d];

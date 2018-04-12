@@ -56,9 +56,19 @@ enum  mlx5_ib_devx_other_attrs {
 	MLX5_IB_ATTR_DEVX_OTHER_CMD_OUT,
 };
 
+enum mlx5_ib_devx_obj_create_attrs {
+	MLX5_IB_ATTR_DEVX_OBJ_CREATE_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+	MLX5_IB_ATTR_DEVX_OBJ_CREATE_CMD_IN,
+	MLX5_IB_ATTR_DEVX_OBJ_CREATE_CMD_OUT,
+};
+
 enum  mlx5_ib_devx_query_uar_attrs {
 	MLX5_IB_ATTR_DEVX_QUERY_UAR_USER_IDX = (1U << UVERBS_ID_NS_SHIFT),
 	MLX5_IB_ATTR_DEVX_QUERY_UAR_DEV_IDX,
+};
+
+enum mlx5_ib_devx_obj_destroy_attrs {
+	MLX5_IB_ATTR_DEVX_OBJ_DESTROY_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
 };
 
 enum  mlx5_ib_devx_query_eqn_attrs {
@@ -66,36 +76,26 @@ enum  mlx5_ib_devx_query_eqn_attrs {
 	MLX5_IB_ATTR_DEVX_QUERY_EQN_DEV_EQN,
 };
 
-enum mlx5_ib_create_devx_obj_attrs {
-	MLX5_IB_ATTR_CREATE_DEVX_OBJ_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
-	MLX5_IB_ATTR_CREATE_DEVX_OBJ_CMD_IN,
-	MLX5_IB_ATTR_CREATE_DEVX_OBJ_CMD_OUT,
+enum mlx5_ib_devx_obj_methods {
+	MLX5_IB_METHOD_DEVX_OBJ_CREATE = (1U << UVERBS_ID_NS_SHIFT),
+	MLX5_IB_METHOD_DEVX_OBJ_DESTROY,
 };
 
-enum mlx5_ib_destroy_devx_obj_attrs {
-	MLX5_IB_ATTR_DESTROY_DEVX_OBJ_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+enum mlx5_ib_devx_umem_reg_attrs {
+	MLX5_IB_ATTR_DEVX_UMEM_REG_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+	MLX5_IB_ATTR_DEVX_UMEM_REG_ADDR,
+	MLX5_IB_ATTR_DEVX_UMEM_REG_LEN,
+	MLX5_IB_ATTR_DEVX_UMEM_REG_ACCESS,
+	MLX5_IB_ATTR_DEVX_UMEM_REG_OUT_ID,
 };
 
-enum mlx5_ib_obj_devx_methods {
-	MLX5_IB_METHOD_OBJ_DEVX_CREATE = (1U << UVERBS_ID_NS_SHIFT),
-	MLX5_IB_METHOD_OBJ_DEVX_DESTROY,
+enum mlx5_ib_devx_umem_dereg_attrs {
+	MLX5_IB_ATTR_DEVX_UMEM_DEREG_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
 };
 
-enum mlx5_ib_reg_umem_devx_attrs {
-	MLX5_IB_ATTR_REG_UMEM_DEVX_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
-	MLX5_IB_ATTR_REG_UMEM_DEVX_ADDR,
-	MLX5_IB_ATTR_REG_UMEM_DEVX_LEN,
-	MLX5_IB_ATTR_REG_UMEM_DEVX_ACCESS,
-	MLX5_IB_ATTR_REG_UMEM_DEVX_OUT_ID,
-};
-
-enum mlx5_ib_dereg_umem_devx_attrs {
-	MLX5_IB_ATTR_DEREG_UMEM_DEVX_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
-};
-
-enum mlx5_ib_umem_devx_methods {
-	MLX5_IB_METHOD_UMEM_DEVX_REG = (1U << UVERBS_ID_NS_SHIFT),
-	MLX5_IB_METHOD_UMEM_DEVX_DEREG,
+enum mlx5_ib_devx_umem_methods {
+	MLX5_IB_METHOD_DEVX_UMEM_REG = (1U << UVERBS_ID_NS_SHIFT),
+	MLX5_IB_METHOD_DEVX_UMEM_DEREG,
 };
 
 enum mlx5_ib_add_devx_fs_rule_attrs {
@@ -113,7 +113,7 @@ enum mlx5_ib_fs_rule_devx_methods {
 };
 
 enum mlx5_ib_devx_objects {
-       MLX5_IB_OBJECT_DEVX = (1U << UVERBS_ID_NS_SHIFT),
+	MLX5_IB_OBJECT_DEVX = (1U << UVERBS_ID_NS_SHIFT),
 	MLX5_IB_OBJECT_DEVX_OBJ,
 	MLX5_IB_OBJECT_DEVX_UMEM,
 	MLX5_IB_OBJECT_DEVX_FS_RULE,
