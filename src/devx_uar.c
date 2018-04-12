@@ -5,7 +5,7 @@
 #include "devx.h"
 #include "devx_priv.h"
 
-int devx_alloc_uar(void *context, uint32_t *idx, void **addr)
+int devx_alloc_uar(void *context, uint32_t *idx, void **addr, off_t *off)
 {
 	struct devx_context *ctx = (struct devx_context *)context;
 	DECLARE_COMMAND_BUFFER(cmd,
@@ -31,18 +31,18 @@ int devx_alloc_uar(void *context, uint32_t *idx, void **addr)
 
 	ctx->uars[index].used = 1;
 
+	uar_page_index = index / ctx->num_uars_per_page;
+	offset = (MLX5_MMAP_ALLOC_WC << 8);
+	offset |= (uar_page_index & 0xff) | ((uar_page_index >> 8) << 16);
+	offset *= ctx->page_size;
+
 	if (ctx->uars[index].reg)
 		goto ret;
 
-	uar_page_index = index / ctx->num_uars_per_page;
 	mmap_index = uar_page_index * ctx->num_uars_per_page;
 
 	if (ctx->uars[mmap_index].uar)
 		goto set_reg;
-
-	offset = (MLX5_MMAP_ALLOC_WC << 8);
-	offset |= (uar_page_index & 0xff) | ((uar_page_index >> 8) << 16);
-	offset *= ctx->page_size;
 
 	ctx->uars[mmap_index].uar = mmap(*addr, ctx->page_size,
 					 PROT_WRITE, MAP_SHARED,
@@ -68,6 +68,8 @@ set_reg:
 ret:
 	*idx = ctx->uars[index].uuarn;
 	*addr = ctx->uars[index].reg;
+	if (off)
+		*off = offset;
 	return 0;
 err:
 	ctx->uars[index].used = 0;
