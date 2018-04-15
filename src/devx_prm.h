@@ -9,7 +9,7 @@
 #include <linux/types.h>
 #include "linux/mlx5/mlx5_ifc.h"
 
-struct mlx5_ifc_umem_pas_bits {
+struct mlx5_ifc_pas_umem_bits {
 	u8	   reserved_at_0[0x20];
 	u8	   pas_umem_id[0x20];
 	u8	   pas_umem_off[0x40];
@@ -61,6 +61,14 @@ struct mlx5_ifc_umem_pas_bits {
 #define DEVX_SET64(typ, p, fld, v) do { \
 	BUILD_BUG_ON(__devx_bit_off(typ, fld) % 64); \
 	__DEVX_SET64(typ, p, fld, v); \
+} while (0)
+
+#define DEVX_SET_TO_ONES(typ, p, fld) do { \
+	BUILD_BUG_ON(__devx_st_sz_bits(typ) % 32);	       \
+	*((__be32 *)(p) + __devx_dw_off(typ, fld)) = \
+	htobe32((be32toh(*((__be32 *)(p) + __devx_dw_off(typ, fld))) & \
+		     (~__devx_dw_mask(typ, fld))) | ((__devx_mask(typ, fld)) \
+		     << __devx_dw_bit_off(typ, fld))); \
 } while (0)
 
 #endif

@@ -1133,6 +1133,7 @@ enum mlx5_flow_destination_type {
 
 	MLX5_FLOW_DESTINATION_TYPE_PORT         = 0x99,
 	MLX5_FLOW_DESTINATION_TYPE_COUNTER      = 0x100,
+	MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE_NUM = 0x101,
 };
 
 struct mlx5_ifc_dest_format_struct_bits {
@@ -1231,7 +1232,13 @@ struct mlx5_ifc_wq_bits {
 	u8         reserved_at_139[0x4];
 	u8         log_wqe_stride_size[0x3];
 
-	u8         reserved_at_140[0x4c0];
+	u8         dbr_umem_id[0x20];
+
+	u8         wq_umem_id[0x20];
+
+	u8         wq_umem_offset[0x40];
+
+	u8         reserved_at_1c0[0x440];
 
 	struct mlx5_ifc_cmd_pas_bits pas[0];
 };
@@ -2280,7 +2287,9 @@ struct mlx5_ifc_qpc_bits {
 
 	u8         dc_access_key[0x40];
 
-	u8         reserved_at_680[0xc0];
+	u8         reserved_at_680[0xa0];
+
+	u8         dbr_umem_id[0x20];
 };
 
 struct mlx5_ifc_roce_addr_layout_bits {
@@ -3025,7 +3034,7 @@ struct mlx5_ifc_cqc_bits {
 	u8         st[0x4];
 	u8         reserved_at_18[0x8];
 
-	u8         reserved_at_20[0x20];
+	u8         dbr_umem_id[0x20];
 
 	u8         reserved_at_40[0x14];
 	u8         page_offset[0x6];
@@ -6755,7 +6764,11 @@ struct mlx5_ifc_create_qp_in_bits {
 
 	struct mlx5_ifc_qpc_bits qpc;
 
-	u8         reserved_at_800[0x80];
+	u8         wq_umem_offset[0x40];
+
+	u8         wq_umem_id[0x20];
+
+	u8         reserved_at_860[0x20];
 
 	u8         pas[0][0x40];
 };
@@ -6825,7 +6838,11 @@ struct mlx5_ifc_create_mkey_in_bits {
 
 	u8         translations_octword_actual_size[0x20];
 
-	u8         reserved_at_320[0x560];
+	u8         mkey_umem_id[0x20];
+
+	u8         mkey_umem_offset[0x40];
+
+	u8         reserved_at_380[0x500];
 
 	u8         klm_pas_mtt[0][0x20];
 };
@@ -7017,7 +7034,11 @@ struct mlx5_ifc_create_cq_in_bits {
 
 	struct mlx5_ifc_cqc_bits cq_context;
 
-	u8         reserved_at_280[0x600];
+	u8         cq_umem_offset[0x40];
+
+	u8         cq_umem_id[0x20];
+
+	u8         reserved_at_2e0[0x5a0];
 
 	u8         pas[0][0x40];
 };

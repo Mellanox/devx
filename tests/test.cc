@@ -65,11 +65,10 @@ int alloc_pd(void *ctx) {
 
 int reg_mr(void *ctx, int pd, void *buff, size_t size);
 int reg_mr(void *ctx, int pd, void *buff, size_t size) {
-	uint32_t in[DEVX_ST_SZ_DW(create_mkey_in) + DEVX_ST_SZ_DW(umem_pas)] = {0};
+	uint32_t in[DEVX_ST_SZ_DW(create_mkey_in)] = {0};
 	uint32_t out[DEVX_ST_SZ_DW(create_mkey_out)] = {0};
 	struct devx_obj_handle *mem, *mr;
 	uint32_t mem_id;
-	void *up;
 
 	mem = devx_umem_reg(ctx, buff, size, 7, &mem_id);
 	if (!mem)
@@ -91,9 +90,7 @@ int reg_mr(void *ctx, int pd, void *buff, size_t size) {
 	DEVX_SET(create_mkey_in, in, memory_key_mkey_entry.mkey_7_0, 0x42);
 	DEVX_SET(create_mkey_in, in, translations_octword_actual_size, 1);
 	DEVX_SET(create_mkey_in, in, pg_access, 1);
-
-	up = DEVX_ADDR_OF(create_cq_in, in, pas);
-	DEVX_SET(umem_pas, up, pas_umem_id, mem_id);
+	DEVX_SET(create_mkey_in, in, mkey_umem_id, mem_id);
 
 	mr = devx_obj_create(ctx, in, sizeof(in), out, sizeof(out));
 	if (!mr)
@@ -126,7 +123,7 @@ struct mlx5_eqe {
 int create_eq(void *ctx, void **buff_out, uint32_t uar_id);
 int create_eq(void *ctx, void **buff_out, uint32_t uar_id)
 {
-	uint32_t in[DEVX_ST_SZ_DW(create_eq_in) + DEVX_ST_SZ_DW(umem_pas)] = {0};
+	uint32_t in[DEVX_ST_SZ_DW(create_eq_in) + DEVX_ST_SZ_DW(pas_umem)] = {0};
 	uint32_t out[DEVX_ST_SZ_DW(create_eq_out)] = {0};
 	struct mlx5_eqe *eqe;
 	struct devx_obj_handle *pas, *eq;
@@ -153,7 +150,7 @@ int create_eq(void *ctx, void **buff_out, uint32_t uar_id)
 	DEVX_SET(eqc, eqc, uar_page, uar_id);
 
 	up = DEVX_ADDR_OF(create_eq_in, in, pas);
-	DEVX_SET(umem_pas, up, pas_umem_id, pas_id);
+	DEVX_SET(pas_umem, up, pas_umem_id, pas_id);
 
 	eq = devx_obj_create(ctx, in, sizeof(in), out, sizeof(out));
 	if (!eq)
@@ -163,15 +160,15 @@ int create_eq(void *ctx, void **buff_out, uint32_t uar_id)
 	return DEVX_GET(create_eq_out, out, eq_number);
 }
 
-int create_cq(void *ctx, void **buff_out, int uar_id, uint32_t **dbr_out, uint32_t eq);
-int create_cq(void *ctx, void **buff_out, int uar_id, uint32_t **dbr_out, uint32_t eq) {
-	uint32_t in[DEVX_ST_SZ_DW(create_cq_in) + DEVX_ST_SZ_DW(umem_pas)] = {0};
+int create_cq(void *ctx, void **buff_out, uint32_t uar_id, uint32_t **dbr_out, uint32_t eq);
+int create_cq(void *ctx, void **buff_out, uint32_t uar_id, uint32_t **dbr_out, uint32_t eq) {
+	uint32_t in[DEVX_ST_SZ_DW(create_cq_in)] = {0};
 	uint32_t out[DEVX_ST_SZ_DW(create_cq_out)] = {0};
 	struct mlx5_cqe64 *cqe;
 	struct devx_obj_handle *pas, *cq;
 	uint32_t pas_id, dbr_id;
 	uint8_t *buff;
-	void *dbr, *up;
+	void *dbr, *uar_ptr;
 	size_t dbr_off;
 	int ret = 0;
 	int i;
@@ -185,6 +182,8 @@ int create_cq(void *ctx, void **buff_out, int uar_id, uint32_t **dbr_out, uint32
 
 	if (!eq)
 		ret = devx_query_eqn(ctx, 0, &eq);
+	if (!uar_id)
+		ret = devx_alloc_uar(ctx, &uar_id, &uar_ptr, NULL);
 	pas = devx_umem_reg(ctx, buff, 0x1000, 7, &pas_id);
 	dbr = devx_alloc_dbrec(ctx, &dbr_id, &dbr_off);
 
@@ -196,18 +195,18 @@ int create_cq(void *ctx, void **buff_out, int uar_id, uint32_t **dbr_out, uint32
 	DEVX_SET(create_cq_in, in, cq_context.cqe_sz, 0);
 	DEVX_SET(create_cq_in, in, cq_context.log_cq_size, 5);
 	DEVX_SET(create_cq_in, in, cq_context.uar_page, uar_id);
-
-	up = DEVX_ADDR_OF(create_cq_in, in, pas);
-	DEVX_SET(umem_pas, up, pas_umem_id, pas_id);
-	DEVX_SET(umem_pas, up, dbr_umem_id, dbr_id);
-	DEVX_SET64(umem_pas, up, dbr_umem_off, dbr_off);
+	DEVX_SET(create_cq_in, in, cq_umem_id, pas_id);
+	DEVX_SET(create_cq_in, in, cq_context.dbr_umem_id, dbr_id);
+	DEVX_SET64(create_cq_in, in, cq_context.dbr_addr, dbr_off);
 
 	cq = devx_obj_create(ctx, in, sizeof(in), out, sizeof(out));
 	if (!cq)
 		return 0;
 
-	*dbr_out = (uint32_t *)dbr;
-	*buff_out = buff;
+	if (dbr_out)
+		*dbr_out = (uint32_t *)dbr;
+	if (buff_out)
+		*buff_out = buff;
 
 	return DEVX_GET(create_cq_out, out, cqn);
 }
@@ -304,11 +303,11 @@ enum {
 
 int create_qp(void *ctx, void **buff_out, int uar_id, uint32_t **dbr_out, int cqn, int pd);
 int create_qp(void *ctx, void **buff_out, int uar_id, uint32_t **dbr_out, int cqn, int pd) {
-	u8 in[DEVX_ST_SZ_BYTES(create_qp_in) + DEVX_ST_SZ_BYTES(umem_pas)] = {0};
+	u8 in[DEVX_ST_SZ_BYTES(create_qp_in)] = {0};
 	u8 out[DEVX_ST_SZ_BYTES(create_qp_out)] = {0};
 	struct devx_obj_handle *pas, *q;
 	uint32_t pas_id, dbr_id;
-	void *buff, *uar_ptr = NULL, *dbr, *up, *qpc;
+	void *buff, *uar_ptr = NULL, *dbr, *qpc;
 	size_t dbr_off;
 	int ret;
 
@@ -334,11 +333,9 @@ int create_qp(void *ctx, void **buff_out, int uar_id, uint32_t **dbr_out, int cq
 	DEVX_SET(qpc, qpc, log_rq_size, 6);
 	DEVX_SET(qpc, qpc, cs_req, MLX5_REQ_SCAT_DATA32_CQE);
 	DEVX_SET(qpc, qpc, cs_res, MLX5_RES_SCAT_DATA32_CQE);
-
-	up = DEVX_ADDR_OF(create_qp_in, in, pas);
-	DEVX_SET(umem_pas, up, pas_umem_id, pas_id);
-	DEVX_SET(umem_pas, up, dbr_umem_id, dbr_id);
-	DEVX_SET64(umem_pas, up, dbr_umem_off, dbr_off);
+	DEVX_SET(create_qp_in, in, wq_umem_id, pas_id);
+	DEVX_SET(qpc, qpc, dbr_umem_id, dbr_id);
+	DEVX_SET64(qpc, qpc, dbr_addr, dbr_off);
 
 	q = devx_obj_create(ctx, in, sizeof(in), out, sizeof(out));
 	if (!q)
@@ -587,6 +584,293 @@ TEST(devx, send) {
 	ASSERT_FALSE(arm_eq(eq, eqi, uar_ptr));
 	ASSERT_FALSE(arm_cq(cq, cqi, cq_dbr, uar_ptr));
 }
+
+int test_rq(void *ctx, int cqn, int pd);
+int test_rq(void *ctx, int cqn, int pd) {
+	u8 in[DEVX_ST_SZ_BYTES(create_rq_in)] = {0};
+	u8 out[DEVX_ST_SZ_BYTES(create_rq_out)] = {0};
+	struct devx_obj_handle *pas, *q;
+	uint32_t pas_id, dbr_id, uar_id;
+	void *buff, *uar_ptr = NULL, *dbr;
+	void *rqc, *wq;
+	int ret;
+
+	buff = mmap(NULL, 0x10000, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
+	pas = devx_umem_reg(ctx, buff, 0x10000, 7, &pas_id);
+
+	dbr = devx_umem_reg(ctx, memalign(64, 8), 8, 7, &dbr_id);
+	if (!dbr)
+		return 0;
+	ret = devx_alloc_uar(ctx, &uar_id, &uar_ptr, NULL);
+	if (ret)
+		return 0;
+
+	DEVX_SET(create_rq_in, in, opcode, MLX5_CMD_OP_CREATE_RQ);
+
+	rqc = DEVX_ADDR_OF(create_rq_in, in, ctx);
+	DEVX_SET(rqc, rqc, vsd, 1);
+	DEVX_SET(rqc, rqc, mem_rq_type, MLX5_RQC_MEM_RQ_TYPE_MEMORY_RQ_INLINE);
+	DEVX_SET(rqc, rqc, state, MLX5_RQC_STATE_RST);
+	DEVX_SET(rqc, rqc, flush_in_error_en, 1);
+	DEVX_SET(rqc, rqc, user_index, 1);
+	DEVX_SET(rqc, rqc, cqn, cqn);
+
+	wq = DEVX_ADDR_OF(rqc, rqc, wq);
+	DEVX_SET(wq, wq, wq_type, 1);
+	DEVX_SET(wq, wq, pd, pd);
+	DEVX_SET(wq, wq, log_wq_stride, 6);
+	DEVX_SET(wq, wq, log_wq_sz, 6);
+
+	DEVX_SET(create_rq_in, in, ctx.wq.wq_umem_id, pas_id);
+	DEVX_SET(create_rq_in, in, ctx.wq.dbr_umem_id, dbr_id);
+
+	q = devx_obj_create(ctx, in, sizeof(in), out, sizeof(out));
+
+	return DEVX_GET(create_rq_out, out, rqn);
+}
+
+int test_td(void *ctx);
+int test_td(void *ctx) {
+	u8 in[DEVX_ST_SZ_BYTES(alloc_transport_domain_in)]   = {0};
+	u8 out[DEVX_ST_SZ_BYTES(alloc_transport_domain_out)] = {0};
+
+	DEVX_SET(alloc_transport_domain_in, in, opcode,
+		 MLX5_CMD_OP_ALLOC_TRANSPORT_DOMAIN);
+
+	if (!devx_obj_create(ctx, in, sizeof(in), out, sizeof(out)))
+		return 0;
+
+	return DEVX_GET(alloc_transport_domain_out, out, transport_domain);
+}
+
+int test_tir(void *ctx, int rq, int td);
+int test_tir(void *ctx, int rq, int td) {
+	u8 in[DEVX_ST_SZ_BYTES(create_tir_in)]   = {0};
+	u8 out[DEVX_ST_SZ_BYTES(create_tir_out)] = {0};
+	void *tirc;
+
+	DEVX_SET(create_tir_in, in, opcode, MLX5_CMD_OP_CREATE_TIR);
+	tirc = DEVX_ADDR_OF(create_tir_in, in, ctx);
+	DEVX_SET(tirc, tirc, disp_type, MLX5_TIRC_DISP_TYPE_DIRECT);
+	DEVX_SET(tirc, tirc, inline_rqn, rq);
+	DEVX_SET(tirc, tirc, transport_domain, td);
+
+	if (!devx_obj_create(ctx, in, sizeof(in), out, sizeof(out)))
+		return 0;
+
+	return DEVX_GET(create_tir_out, out, tirn);
+}
+
+int test_rule(void *ctx, int tir);
+int test_rule(void *ctx, int tir) {
+	u8 in[DEVX_ST_SZ_BYTES(fs_rule_add_in)] = {0};
+	struct devx_obj_handle *rule;
+	__be32 src_ip = 0x01020304;
+	__be32 dst_ip = 0x05060708;
+	void *headers_c, *headers_v;
+
+	DEVX_SET(fs_rule_add_in, in, prio, 4);
+
+	headers_c = DEVX_ADDR_OF(fs_rule_add_in, in,
+			flow_spec.match_criteria.outer_headers);
+	headers_v = DEVX_ADDR_OF(fs_rule_add_in, in,
+			flow_spec.match_value.outer_headers);
+
+	DEVX_SET(fte_match_set_lyr_2_4, headers_c, ip_version, 0xf);
+	DEVX_SET(fte_match_set_lyr_2_4, headers_v, ip_version, 4);
+
+	DEVX_SET_TO_ONES(fte_match_set_lyr_2_4, headers_c,
+			 src_ipv4_src_ipv6.ipv4_layout.ipv4);
+	memcpy(DEVX_ADDR_OF(fte_match_set_lyr_2_4, headers_v,
+			    src_ipv4_src_ipv6.ipv4_layout.ipv4),
+			&src_ip, sizeof(src_ip));
+
+	DEVX_SET_TO_ONES(fte_match_set_lyr_2_4, headers_c,
+			 dst_ipv4_dst_ipv6.ipv4_layout.ipv4);
+	memcpy(DEVX_ADDR_OF(fte_match_set_lyr_2_4, headers_v,
+			    dst_ipv4_dst_ipv6.ipv4_layout.ipv4),
+			&dst_ip, sizeof(dst_ip));
+
+	DEVX_SET(fs_rule_add_in, in, dest.destination_type, MLX5_FLOW_DESTINATION_TYPE_TIR);
+	DEVX_SET(fs_rule_add_in, in, dest.destination_id, tir);
+
+	DEVX_SET(fs_rule_add_in, in, flow_spec.match_criteria_enable, 1 << MLX5_CREATE_FLOW_GROUP_IN_MATCH_CRITERIA_ENABLE_OUTER_HEADERS);
+
+	rule = devx_fs_rule_add(ctx, in, sizeof(in));
+	if (!rule)
+		return 0;
+	return 1;
+}
+
+enum fs_flow_table_type {
+	FS_FT_NIC_RX	      = 0x0,
+	FS_FT_NIC_TX	      = 0x1,
+	FS_FT_ESW_EGRESS_ACL  = 0x2,
+	FS_FT_ESW_INGRESS_ACL = 0x3,
+	FS_FT_FDB	      = 0X4,
+	FS_FT_SNIFFER_RX	= 0X5,
+	FS_FT_SNIFFER_TX	= 0X6,
+	FS_FT_MAX_TYPE = FS_FT_SNIFFER_TX,
+};
+
+int create_ft(void *ctx);
+int create_ft(void *ctx)
+{
+	uint8_t in[DEVX_ST_SZ_BYTES(create_flow_table_in)] = {0};
+	uint8_t out[DEVX_ST_SZ_BYTES(create_flow_table_out)] = {0};
+	void *ftc;
+
+	DEVX_SET(create_flow_table_in, in, opcode, MLX5_CMD_OP_CREATE_FLOW_TABLE);
+	DEVX_SET(create_flow_table_in, in, table_type, FS_FT_NIC_RX);
+
+	ftc = DEVX_ADDR_OF(create_flow_table_in, in, flow_table_context);
+	DEVX_SET(flow_table_context, ftc, table_miss_action, 0); // default table
+	DEVX_SET(flow_table_context, ftc, level, 64); // table level
+	DEVX_SET(flow_table_context, ftc, log_size, 0);
+
+	if (!devx_obj_create(ctx, in, sizeof(in), out, sizeof(out)))
+		return 0;
+
+	return DEVX_GET(create_flow_table_out, out, table_id);
+}
+
+int create_fg(void *ctx, int ft);
+int create_fg(void *ctx, int ft)
+{
+	uint8_t in[DEVX_ST_SZ_BYTES(create_flow_group_in)] = {0};
+	uint8_t out[DEVX_ST_SZ_BYTES(create_flow_group_out)] = {0};
+
+	DEVX_SET(create_flow_group_in, in, opcode, MLX5_CMD_OP_CREATE_FLOW_GROUP);
+	DEVX_SET(create_flow_group_in, in, table_type, FS_FT_NIC_RX);
+	DEVX_SET(create_flow_group_in, in, table_id, ft);
+	DEVX_SET(create_flow_group_in, in, start_flow_index, 0);
+	DEVX_SET(create_flow_group_in, in, end_flow_index, 0);
+	DEVX_SET(create_flow_group_in, in, match_criteria_enable, MLX5_CREATE_FLOW_GROUP_IN_MATCH_CRITERIA_ENABLE_OUTER_HEADERS);
+
+	if (!devx_obj_create(ctx, in, sizeof(in), out, sizeof(out)))
+		return 0;
+
+	return DEVX_GET(create_flow_group_out, out, group_id);
+}
+
+int set_fte(void *ctx, int ft, int fg, int tir);
+int set_fte(void *ctx, int ft, int fg, int tir) 
+{
+	uint8_t in[DEVX_ST_SZ_BYTES(set_fte_in) + DEVX_UN_SZ_BYTES(dest_format_struct_flow_counter_list_auto)] = {0};
+	uint8_t out[DEVX_ST_SZ_BYTES(set_fte_out)] = {0};
+	void *in_flow_context, *in_dests;
+
+	DEVX_SET(set_fte_in, in, opcode, MLX5_CMD_OP_SET_FLOW_TABLE_ENTRY);
+	DEVX_SET(set_fte_in, in, uid, 0); // FIXME !!!!!!
+	DEVX_SET(set_fte_in, in, op_mod, 0); // SET = 0, MOD =1
+	DEVX_SET(set_fte_in, in, modify_enable_mask, 0);
+	DEVX_SET(set_fte_in, in, table_type, FS_FT_NIC_RX);
+	DEVX_SET(set_fte_in, in, table_id,   ft);
+	DEVX_SET(set_fte_in, in, flow_index, 0);
+
+	DEVX_SET(set_fte_in, in, vport_number, 0);
+	DEVX_SET(set_fte_in, in, other_vport, 0);
+
+	in_flow_context = DEVX_ADDR_OF(set_fte_in, in, flow_context);
+	DEVX_SET(flow_context, in_flow_context, group_id, fg);
+	DEVX_SET(flow_context, in_flow_context, flow_tag, 1);
+	DEVX_SET(flow_context, in_flow_context, action, MLX5_FLOW_CONTEXT_ACTION_FWD_DEST);
+	DEVX_SET(flow_context, in_flow_context, destination_list_size, 1);
+
+	in_dests = DEVX_ADDR_OF(flow_context, in_flow_context, destination[0].dest_format_struct);
+	DEVX_SET(dest_format_struct, in_dests, destination_type, MLX5_FLOW_DESTINATION_TYPE_TIR);
+	DEVX_SET(dest_format_struct, in_dests, destination_id, tir);
+
+	if (!devx_obj_create(ctx, in, sizeof(in), out, sizeof(out)))
+		return 0;
+
+	return 1;
+}
+
+int test_rule_priv(void *ctx, int ft);
+int test_rule_priv(void *ctx, int ft) {
+	u8 in[DEVX_ST_SZ_BYTES(fs_rule_add_in)] = {0};
+	struct devx_obj_handle *rule;
+	__be32 src_ip = 0x01020304;
+	__be32 dst_ip = 0x05060708;
+	void *headers_c, *headers_v;
+
+	DEVX_SET(fs_rule_add_in, in, prio, 5);
+
+	headers_c = DEVX_ADDR_OF(fs_rule_add_in, in,
+			flow_spec.match_criteria.outer_headers);
+	headers_v = DEVX_ADDR_OF(fs_rule_add_in, in,
+			flow_spec.match_value.outer_headers);
+
+	DEVX_SET(fte_match_set_lyr_2_4, headers_c, ip_version, 0xf);
+	DEVX_SET(fte_match_set_lyr_2_4, headers_v, ip_version, 4);
+
+	DEVX_SET_TO_ONES(fte_match_set_lyr_2_4, headers_c,
+			 src_ipv4_src_ipv6.ipv4_layout.ipv4);
+	memcpy(DEVX_ADDR_OF(fte_match_set_lyr_2_4, headers_v,
+			    src_ipv4_src_ipv6.ipv4_layout.ipv4),
+			&src_ip, sizeof(src_ip));
+
+	DEVX_SET_TO_ONES(fte_match_set_lyr_2_4, headers_c,
+			 dst_ipv4_dst_ipv6.ipv4_layout.ipv4);
+	memcpy(DEVX_ADDR_OF(fte_match_set_lyr_2_4, headers_v,
+			    dst_ipv4_dst_ipv6.ipv4_layout.ipv4),
+			&dst_ip, sizeof(dst_ip));
+
+	DEVX_SET(fs_rule_add_in, in, dest.destination_type, MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE);
+	DEVX_SET(fs_rule_add_in, in, dest.destination_id, ft);
+
+	DEVX_SET(fs_rule_add_in, in, flow_spec.match_criteria_enable, 1 << MLX5_CREATE_FLOW_GROUP_IN_MATCH_CRITERIA_ENABLE_OUTER_HEADERS);
+
+	rule = devx_fs_rule_add(ctx, in, sizeof(in));
+	if (!rule)
+		return 0;
+
+	return 1;
+}
+
+TEST(devx, roce) {
+	int num;
+	struct devx_device **list = devx_get_device_list(&num);
+	void *ctx;
+	int devn = 0;
+	int pd;
+	int cq, rq, td, tir;
+	int ft, fg;
+
+	if (getenv("DEVN"))
+		devn = atoi(getenv("DEVN"));
+
+	ASSERT_GT(num, devn);
+	ctx = devx_open_device(list[devn]);
+	ASSERT_TRUE(ctx);
+	devx_free_device_list(list);
+	ASSERT_EQ(test_query(ctx), 22);
+
+	pd = alloc_pd(ctx);
+	ASSERT_TRUE(pd);
+
+	cq = create_cq(ctx, NULL, 0, NULL, 0);
+	ASSERT_TRUE(cq);
+	rq = test_rq(ctx, cq, pd);
+	ASSERT_TRUE(rq);
+	td = test_td(ctx);
+	ASSERT_TRUE(td);
+	tir = test_tir(ctx, rq, td);
+	ASSERT_TRUE(tir);
+
+	ASSERT_TRUE(test_rule(ctx, tir));
+	ft = create_ft(ctx);
+	ASSERT_TRUE(ft);
+	fg = create_fg(ctx,ft);
+	ASSERT_TRUE(fg);
+	ASSERT_TRUE(set_fte(ctx,ft,fg,tir));
+	ASSERT_TRUE(test_rule_priv(ctx,ft));
+	ASSERT_TRUE(test_rule_priv(ctx,ft));
+
+	devx_close_device(ctx);
+}
+
 
 #ifdef DEVX_VERBS_MIX
 #include "devx_verbs.h"
