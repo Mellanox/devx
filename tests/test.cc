@@ -36,8 +36,8 @@ enum {
 };
 
 
-int test_query(void *ctx);
-int test_query(void *ctx) {
+int query_device(void *ctx);
+int query_device(void *ctx) {
 	uint32_t in[DEVX_ST_SZ_DW(query_hca_cap_in)] = {0};
 	uint32_t out[DEVX_ST_SZ_DW(query_hca_cap_out)] = {0};
 	int ret;
@@ -45,8 +45,10 @@ int test_query(void *ctx) {
 	DEVX_SET(query_hca_cap_in, in, opcode, MLX5_CMD_OP_QUERY_HCA_CAP);
 	DEVX_SET(query_hca_cap_in, in, op_mod, MLX5_HCA_CAP_OPMOD_GET_MAX | (MLX5_CAP_GENERAL << 1));
 	ret = devx_cmd(ctx, in, sizeof(in), out, sizeof(out));
+	if (ret)
+		return ret;
 	return DEVX_GET(query_hca_cap_out, out,
-			capability.cmd_hca_cap.log_max_cq_sz);
+			capability.cmd_hca_cap.port_type);
 }
 
 int alloc_pd(void *ctx);
@@ -362,10 +364,18 @@ int to_init(struct devx_obj_handle *obj, int qp) {
 	return devx_obj_modify(obj, in, sizeof(in), out, sizeof(out));
 }
 
-int to_rtr(struct devx_obj_handle *obj, int qp, int lid) {
+int to_rtr(struct devx_obj_handle *obj, int qp, int type, int lid, uint8_t *gid) {
 	uint32_t in[DEVX_ST_SZ_DW(init2rtr_qp_in)] = {0};
 	uint32_t out[DEVX_ST_SZ_DW(init2rtr_qp_out)] = {0};
 	void *qpc = DEVX_ADDR_OF(rst2init_qp_in, in, qpc);
+	uint8_t mac[6];
+
+	mac[0] = gid[8] ^ 0x02;
+	mac[1] = gid[9];
+	mac[2] = gid[10];
+	mac[3] = gid[13];
+	mac[4] = gid[14];
+	mac[5] = gid[15];
 
 	DEVX_SET(init2rtr_qp_in, in, opcode, MLX5_CMD_OP_INIT2RTR_QP);
 	DEVX_SET(init2rtr_qp_in, in, qpn, qp);
@@ -373,7 +383,15 @@ int to_rtr(struct devx_obj_handle *obj, int qp, int lid) {
 	DEVX_SET(qpc, qpc, mtu, 2);
 	DEVX_SET(qpc, qpc, log_msg_max, 30);
 	DEVX_SET(qpc, qpc, remote_qpn, qp);
-	DEVX_SET(qpc, qpc, primary_address_path.rlid, lid);
+	if (type) {
+		DEVX_SET(qpc, qpc, primary_address_path.hop_limit, 1);
+		memcpy(DEVX_ADDR_OF(qpc, qpc, primary_address_path.rmac_47_32), mac, 6);
+	} else {
+		DEVX_SET(qpc, qpc, primary_address_path.rlid, lid);
+		DEVX_SET(qpc, qpc, primary_address_path.grh, 1);
+	}
+	memcpy(DEVX_ADDR_OF(qpc, qpc, primary_address_path.rgid_rip), gid,
+	       DEVX_FLD_SZ_BYTES(qpc, primary_address_path.rgid_rip));
 	DEVX_SET(qpc, qpc, primary_address_path.vhca_port_num, 1);
 	DEVX_SET(qpc, qpc, rre, 1);
 	DEVX_SET(qpc, qpc, rwe, 1);
@@ -512,7 +530,24 @@ TEST(devx, smoke) {
 	ASSERT_TRUE(ctx);
 	devx_free_device_list(list);
 
-	EXPECT_EQ(test_query(ctx), 22);
+	EXPECT_LE(0, query_device(ctx));
+}
+
+TEST(devx, gid) {
+	int num, devn = 0;
+	struct devx_device **list = devx_get_device_list(&num);
+	void *ctx;
+
+	if (getenv("DEVN"))
+		devn = atoi(getenv("DEVN"));
+
+	ASSERT_GT(num, devn);
+	ctx = devx_open_device(list[devn]);
+	ASSERT_TRUE(ctx);
+	devx_free_device_list(list);
+
+	uint8_t gid[16];
+	ASSERT_FALSE(devx_query_gid(ctx, 1, 0, gid));
 }
 
 TEST(devx, send) {
@@ -524,7 +559,7 @@ TEST(devx, send) {
 	for(int i = 0; i < 0x60; i++)
 		buff[i] = i + 0x20;
 
-	int ret, lid;
+	int ret, lid, type;
 
 	if (getenv("DEVN"))
 		devn = atoi(getenv("DEVN"));
@@ -553,8 +588,18 @@ TEST(devx, send) {
 	int mkey = reg_mr(ctx, pd, buff, sizeof(buff));
 	ASSERT_TRUE(mkey);
 
-	lid = query_lid(ctx);
-	ASSERT_LE(0, lid);
+	type = query_device(ctx);
+	EXPECT_LE(0, query_device(ctx));
+
+	uint8_t gid[16];
+	ASSERT_FALSE(devx_query_gid(ctx, 1, 0, gid));
+
+	if (!type) {
+		lid = query_lid(ctx);
+		ASSERT_LE(0, lid);
+	} else {
+		lid = 0;
+	}
 
 	void *qp_buff;
 	uint32_t *qp_dbr;
@@ -562,7 +607,7 @@ TEST(devx, send) {
 	int qp = create_qp(ctx, &qp_buff, uar_id, &qp_dbr, cq, pd, &q);
 	ASSERT_TRUE(qp);
 	ASSERT_FALSE(to_init(q, qp));
-	ASSERT_FALSE(to_rtr(q, qp, lid));
+	ASSERT_FALSE(to_rtr(q, qp, type, lid, gid));
 	ASSERT_FALSE(to_rts(q, qp));
 
 	uint8_t *rq = (uint8_t *)qp_buff;
@@ -848,7 +893,9 @@ TEST(devx, roce) {
 	ctx = devx_open_device(list[devn]);
 	ASSERT_TRUE(ctx);
 	devx_free_device_list(list);
-	ASSERT_EQ(test_query(ctx), 22);
+
+	int type = query_device(ctx);
+	EXPECT_LE(0, query_device(ctx));
 
 	pd = alloc_pd(ctx);
 	ASSERT_TRUE(pd);

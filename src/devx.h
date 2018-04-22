@@ -62,6 +62,9 @@ int devx_fs_rule_del(struct devx_obj_handle *obj);
 void *devx_alloc_dbrec(void *ctx, uint32_t *mem_id, size_t *off);
 void devx_free_dbrec(void *ctx, void *db);
 
+int devx_query_gid(void *ctx, uint8_t port_num,
+		   int index, uint8_t *gid);
+
 #ifdef __cplusplus
 }
 #endif
