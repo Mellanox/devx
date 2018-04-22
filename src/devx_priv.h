@@ -1,6 +1,8 @@
 #ifndef __DEVX_PRIV_H__
 #define __DEVX_PRIV_H__
 
+#include <linux/limits.h>
+
 struct devx_uar {
 	void			       *reg;
 	uint32_t			uuarn;
@@ -18,6 +20,7 @@ struct devx_context {
 	uint32_t			num_uars;
 	struct devx_uar		       *uars;
 	struct devx_db_page	       *db_list;
+	char				ibdev_path[PATH_MAX];
 };
 
 struct devx_obj_handle {

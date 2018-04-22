@@ -363,7 +363,7 @@ int to_init(void *ctx, int qp) {
 	return devx_cmd(ctx, in, sizeof(in), out, sizeof(out));
 }
 
-int to_rtr(void *ctx, int qp, int lid) {
+int to_rtr(void *ctx, int qp, int lid, uint8_t *gid) {
 	uint32_t in[DEVX_ST_SZ_DW(init2rtr_qp_in)] = {0};
 	uint32_t out[DEVX_ST_SZ_DW(init2rtr_qp_out)] = {0};
 	void *qpc = DEVX_ADDR_OF(rst2init_qp_in, in, qpc);
@@ -375,7 +375,10 @@ int to_rtr(void *ctx, int qp, int lid) {
 	DEVX_SET(qpc, qpc, log_msg_max, 30);
 	DEVX_SET(qpc, qpc, remote_qpn, qp);
 	DEVX_SET(qpc, qpc, primary_address_path.rlid, lid);
+	memcpy(DEVX_ADDR_OF(qpc, qpc, primary_address_path.rgid_rip), gid,
+	       DEVX_FLD_SZ_BYTES(qpc, primary_address_path.rgid_rip));
 	DEVX_SET(qpc, qpc, primary_address_path.vhca_port_num, 1);
+	DEVX_SET(qpc, qpc, primary_address_path.grh, 1);
 	DEVX_SET(qpc, qpc, rre, 1);
 	DEVX_SET(qpc, qpc, rwe, 1);
 	DEVX_SET(qpc, qpc, min_rnr_nak, 12);
@@ -516,6 +519,23 @@ TEST(devx, smoke) {
 	EXPECT_EQ(test_query(ctx), 22);
 }
 
+TEST(devx, gid) {
+	int num, devn = 0;
+	struct devx_device **list = devx_get_device_list(&num);
+	void *ctx;
+
+	if (getenv("DEVN"))
+		devn = atoi(getenv("DEVN"));
+
+	ASSERT_GT(num, devn);
+	ctx = devx_open_device(list[devn]);
+	ASSERT_TRUE(ctx);
+	devx_free_device_list(list);
+
+	uint8_t gid[16];
+	ASSERT_FALSE(devx_query_gid(ctx, 1, 0, gid));
+}
+
 TEST(devx, send) {
 	int num, devn = 0;
 	struct devx_device **list = devx_get_device_list(&num);
@@ -557,12 +577,15 @@ TEST(devx, send) {
 	lid = query_lid(ctx);
 	ASSERT_LE(0, lid);
 
+	uint8_t gid[16];
+	ASSERT_FALSE(devx_query_gid(ctx, 1, 0, gid));
+
 	void *qp_buff;
 	uint32_t *qp_dbr;
 	int qp = create_qp(ctx, &qp_buff, uar_id, &qp_dbr, cq, pd);
 	ASSERT_TRUE(qp);
 	ASSERT_FALSE(to_init(ctx, qp));
-	ASSERT_FALSE(to_rtr(ctx, qp, lid));
+	ASSERT_FALSE(to_rtr(ctx, qp, lid, gid));
 	ASSERT_FALSE(to_rts(ctx, qp));
 
 	uint8_t *rq = (uint8_t *)qp_buff;

@@ -270,6 +270,8 @@ void *devx_open_device(struct devx_device *device)
 	if (!ctx->uars)
 		goto err;
 
+	strcpy(ctx->ibdev_path, device->ibdev_path);
+
 	return ctx;
 err:
 	close(ctx->cmd_fd);
@@ -297,3 +299,26 @@ int devx_close_device(void *context)
 	return 0;
 }
 
+int devx_query_gid(void *context, uint8_t port_num,
+		   int index, uint8_t *gid)
+{
+	struct devx_context *ctx = (struct devx_context *)context;
+	char name[24];
+	char attr[41];
+	uint16_t val;
+	int i;
+
+	snprintf(name, sizeof name, "ports/%d/gids/%d", port_num, index);
+
+	if (read_file(ctx->ibdev_path, name, attr, sizeof(attr)) < 0)
+		return -1;
+
+	for (i = 0; i < 8; ++i) {
+		if (sscanf(attr + i * 5, "%hx", &val) != 1)
+			return -1;
+		gid[i * 2    ] = val >> 8;
+		gid[i * 2 + 1] = val & 0xff;
+	}
+
+	return 0;
+}
