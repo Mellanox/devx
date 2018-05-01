@@ -2307,6 +2307,17 @@ struct mlx5_ifc_roce_addr_layout_bits {
 	u8         reserved_at_e0[0x20];
 };
 
+struct mlx5_ifc_emulation_cap_bits {
+	u8         nvme_offload_type_doorbell_only[0x1];
+	u8         nvme_offload_type_sqe[0x1];
+	u8         reserved_at_0[0x1e];
+
+	u8         reserved_at_20[0x10];
+	u8         registers_size[0x10];
+
+	u8         reserved_at_40[0x7c0];
+};
+
 union mlx5_ifc_hca_cap_union_bits {
 	struct mlx5_ifc_cmd_hca_cap_bits cmd_hca_cap;
 	struct mlx5_ifc_odp_cap_bits odp_cap;
@@ -2319,6 +2330,7 @@ union mlx5_ifc_hca_cap_union_bits {
 	struct mlx5_ifc_vector_calc_cap_bits vector_calc_cap;
 	struct mlx5_ifc_qos_cap_bits qos_cap;
 	struct mlx5_ifc_fpga_cap_bits fpga_cap;
+	struct mlx5_ifc_emulation_cap_bits emulation_cap;
 	u8         reserved_at_0[0x8000];
 };
 
