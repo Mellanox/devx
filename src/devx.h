@@ -41,6 +41,12 @@ struct devx_obj_handle;
 struct devx_obj_handle *devx_obj_create(void *ctx,
 					void *in, size_t inlen,
 					void *out, size_t outlen);
+int devx_obj_query(struct devx_obj_handle *obj,
+		   void *in, size_t inlen,
+		   void *out, size_t outlen);
+int devx_obj_modify(struct devx_obj_handle *obj,
+		    void *in, size_t inlen,
+		    void *out, size_t outlen);
 int devx_obj_destroy(struct devx_obj_handle *obj);
 
 struct devx_obj_handle *devx_umem_reg(void *ctx,
