@@ -253,7 +253,7 @@ void *devx_open_device(struct devx_device *device)
 
 	req.drv.total_num_bfregs	= 1;
 	req.drv.num_low_latency_bfregs	= 0;
-	req.drv.flags			= MLX5_DEVX;
+	req.drv.flags			= MLX5_IB_ALLOC_UCTX_DEVX;
 	req.drv.max_cqe_version		= MLX5_CQE_VERSION_V1;
 	req.drv.lib_caps		= MLX5_LIB_CAP_4K_UAR;
 
