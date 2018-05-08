@@ -301,11 +301,13 @@ enum {
 #define CQ_SIZE (1 << 6)
 #define EQ_SIZE (1 << 6)
 
-int create_qp(void *ctx, void **buff_out, int uar_id, uint32_t **dbr_out, int cqn, int pd);
-int create_qp(void *ctx, void **buff_out, int uar_id, uint32_t **dbr_out, int cqn, int pd) {
+int create_qp(void *ctx, void **buff_out, int uar_id, uint32_t **dbr_out,
+	      int cqn, int pd, struct devx_obj_handle **q);
+int create_qp(void *ctx, void **buff_out, int uar_id, uint32_t **dbr_out,
+	      int cqn, int pd, struct devx_obj_handle **q) {
 	u8 in[DEVX_ST_SZ_BYTES(create_qp_in)] = {0};
 	u8 out[DEVX_ST_SZ_BYTES(create_qp_out)] = {0};
-	struct devx_obj_handle *pas, *q;
+	struct devx_obj_handle *pas;
 	uint32_t pas_id, dbr_id;
 	void *buff, *uar_ptr = NULL, *dbr, *qpc;
 	size_t dbr_off;
@@ -337,8 +339,8 @@ int create_qp(void *ctx, void **buff_out, int uar_id, uint32_t **dbr_out, int cq
 	DEVX_SET(qpc, qpc, dbr_umem_id, dbr_id);
 	DEVX_SET64(qpc, qpc, dbr_addr, dbr_off);
 
-	q = devx_obj_create(ctx, in, sizeof(in), out, sizeof(out));
-	if (!q)
+	*q = devx_obj_create(ctx, in, sizeof(in), out, sizeof(out));
+	if (!*q)
 		return 0;
 
 	*dbr_out = (uint32_t *)dbr;
@@ -347,7 +349,7 @@ int create_qp(void *ctx, void **buff_out, int uar_id, uint32_t **dbr_out, int cq
 	return DEVX_GET(create_qp_out, out, qpn);
 }
 
-int to_init(void *ctx, int qp) {
+int to_init(struct devx_obj_handle *obj, int qp) {
 	uint32_t in[DEVX_ST_SZ_DW(rst2init_qp_in)] = {0};
 	uint32_t out[DEVX_ST_SZ_DW(rst2init_qp_out)] = {0};
 	void *qpc = DEVX_ADDR_OF(rst2init_qp_in, in, qpc);
@@ -357,10 +359,10 @@ int to_init(void *ctx, int qp) {
 
 	DEVX_SET(qpc, qpc, primary_address_path.vhca_port_num, 1);
 
-	return devx_cmd(ctx, in, sizeof(in), out, sizeof(out));
+	return devx_obj_modify(obj, in, sizeof(in), out, sizeof(out));
 }
 
-int to_rtr(void *ctx, int qp, int lid) {
+int to_rtr(struct devx_obj_handle *obj, int qp, int lid) {
 	uint32_t in[DEVX_ST_SZ_DW(init2rtr_qp_in)] = {0};
 	uint32_t out[DEVX_ST_SZ_DW(init2rtr_qp_out)] = {0};
 	void *qpc = DEVX_ADDR_OF(rst2init_qp_in, in, qpc);
@@ -377,10 +379,10 @@ int to_rtr(void *ctx, int qp, int lid) {
 	DEVX_SET(qpc, qpc, rwe, 1);
 	DEVX_SET(qpc, qpc, min_rnr_nak, 12);
 
-	return devx_cmd(ctx, in, sizeof(in), out, sizeof(out));
+	return devx_obj_modify(obj, in, sizeof(in), out, sizeof(out));
 }
 
-int to_rts(void *ctx, int qp) {
+int to_rts(struct devx_obj_handle *obj, int qp) {
 	uint32_t in[DEVX_ST_SZ_DW(rtr2rts_qp_in)] = {0};
 	uint32_t out[DEVX_ST_SZ_DW(rtr2rts_qp_out)] = {0};
 	void *qpc = DEVX_ADDR_OF(rst2init_qp_in, in, qpc);
@@ -393,7 +395,7 @@ int to_rts(void *ctx, int qp) {
 	DEVX_SET(qpc, qpc, rnr_retry, 7);
 	DEVX_SET(qpc, qpc, primary_address_path.ack_timeout, 14);
 
-	return devx_cmd(ctx, in, sizeof(in), out, sizeof(out));
+	return devx_obj_modify(obj, in, sizeof(in), out, sizeof(out));
 }
 
 int recv(uint8_t *rq, uint32_t *rqi, uint32_t *qp_dbr,
@@ -556,11 +558,12 @@ TEST(devx, send) {
 
 	void *qp_buff;
 	uint32_t *qp_dbr;
-	int qp = create_qp(ctx, &qp_buff, uar_id, &qp_dbr, cq, pd);
+	struct devx_obj_handle *q;
+	int qp = create_qp(ctx, &qp_buff, uar_id, &qp_dbr, cq, pd, &q);
 	ASSERT_TRUE(qp);
-	ASSERT_FALSE(to_init(ctx, qp));
-	ASSERT_FALSE(to_rtr(ctx, qp, lid));
-	ASSERT_FALSE(to_rts(ctx, qp));
+	ASSERT_FALSE(to_init(q, qp));
+	ASSERT_FALSE(to_rtr(q, qp, lid));
+	ASSERT_FALSE(to_rts(q, qp));
 
 	uint8_t *rq = (uint8_t *)qp_buff;
 	uint8_t *sq = (uint8_t *)qp_buff + MLX5_SEND_WQE_BB * RQ_SIZE;
@@ -916,11 +919,12 @@ TEST(devx, send_verbs_mr) {
 
 	void *qp_buff;
 	uint32_t *qp_dbr;
-	int qp = create_qp(ctx, &qp_buff, uar_id, &qp_dbr, cq, pdn);
+	struct devx_obj_handle *q;
+	int qp = create_qp(ctx, &qp_buff, uar_id, &qp_dbr, cq, pdn, &q);
 	ASSERT_TRUE(qp);
-	ASSERT_FALSE(to_init(ctx, qp));
-	ASSERT_FALSE(to_rtr(ctx, qp, lid));
-	ASSERT_FALSE(to_rts(ctx, qp));
+	ASSERT_FALSE(to_init(q, qp));
+	ASSERT_FALSE(to_rtr(q, qp, lid));
+	ASSERT_FALSE(to_rts(q, qp));
 
 	uint8_t *rq = (u8 *)qp_buff;
 	uint8_t *sq = (u8 *)qp_buff + MLX5_SEND_WQE_BB * RQ_SIZE;
