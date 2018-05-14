@@ -801,17 +801,18 @@ int create_fg(void *ctx, int ft)
 	return DEVX_GET(create_flow_group_out, out, group_id);
 }
 
-int set_fte(void *ctx, int ft, int fg, int tir);
-int set_fte(void *ctx, int ft, int fg, int tir) 
+int set_fte(void *ctx, int ft, int fg, int tir, struct devx_obj_handle **rule);
+int set_fte(void *ctx, int ft, int fg, int tir, struct devx_obj_handle **rule)
 {
 	uint8_t in[DEVX_ST_SZ_BYTES(set_fte_in) + DEVX_UN_SZ_BYTES(dest_format_struct_flow_counter_list_auto)] = {0};
 	uint8_t out[DEVX_ST_SZ_BYTES(set_fte_out)] = {0};
 	void *in_flow_context, *in_dests;
+	int op = !!*rule;
 
 	DEVX_SET(set_fte_in, in, opcode, MLX5_CMD_OP_SET_FLOW_TABLE_ENTRY);
 	DEVX_SET(set_fte_in, in, uid, 0); // FIXME !!!!!!
-	DEVX_SET(set_fte_in, in, op_mod, 0); // SET = 0, MOD =1
-	DEVX_SET(set_fte_in, in, modify_enable_mask, 0);
+	DEVX_SET(set_fte_in, in, op_mod, op);
+	DEVX_SET(set_fte_in, in, modify_enable_mask, op ? 4 : 0);
 	DEVX_SET(set_fte_in, in, table_type, FS_FT_NIC_RX);
 	DEVX_SET(set_fte_in, in, table_id,   ft);
 	DEVX_SET(set_fte_in, in, flow_index, 0);
@@ -829,10 +830,12 @@ int set_fte(void *ctx, int ft, int fg, int tir)
 	DEVX_SET(dest_format_struct, in_dests, destination_type, MLX5_FLOW_DESTINATION_TYPE_TIR);
 	DEVX_SET(dest_format_struct, in_dests, destination_id, tir);
 
-	if (!devx_obj_create(ctx, in, sizeof(in), out, sizeof(out)))
-		return 0;
-
-	return 1;
+	if (*rule) {
+		return !devx_obj_modify(*rule, in, sizeof(in), out, sizeof(out));
+	} else {
+		*rule = devx_obj_create(ctx, in, sizeof(in), out, sizeof(out));
+		return !!*rule;
+	}
 }
 
 int test_rule_priv(void *ctx, int ft);
@@ -914,13 +917,17 @@ TEST(devx, roce) {
 	ASSERT_TRUE(ft);
 	fg = create_fg(ctx,ft);
 	ASSERT_TRUE(fg);
-	ASSERT_TRUE(set_fte(ctx,ft,fg,tir));
+	struct devx_obj_handle *rule = NULL;
+	ASSERT_TRUE(set_fte(ctx,ft,fg,tir,&rule));
 	ASSERT_TRUE(test_rule_priv(ctx,ft));
 	ASSERT_TRUE(test_rule_priv(ctx,ft));
+
+	int tir2 = test_tir(ctx, rq, td);
+	ASSERT_TRUE(tir2);
+	ASSERT_TRUE(set_fte(ctx,ft,fg,tir2,&rule));
 
 	devx_close_device(ctx);
 }
-
 
 #ifdef DEVX_VERBS_MIX
 #include "devx_verbs.h"
