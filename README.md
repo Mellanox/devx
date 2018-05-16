@@ -13,8 +13,8 @@ can be activated with minimal to none kernel changes.
 ```
 % git clone https://github.com/Mellanox/devx
 % cd devx
-% git modules init
-% git modules update
+% git submodule init
+% git submodule update
 % cmake .
 % make
 % ./test
