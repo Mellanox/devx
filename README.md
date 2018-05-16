@@ -1,11 +1,20 @@
-# devx
+# What is DevX project? 
+
+DevX library enables direct access from the user space area to the
+mlx5 device driver by using the KABI mechanism.
+
+The main purpose here is to make the user space driver as independent as
+possible from the kernel so that future device functionality and commands
+can be activated with minimal to none kernel changes.
 
 
-To configure:
-cmake
+## How to build and run tests with DevX
 
-To build:
-make
-
-To test:
+```
+% git clone https://github.com/Mellanox/devx
+% git modules init
+% git modules update
+% cmake .
+% make
 ./test
+```
