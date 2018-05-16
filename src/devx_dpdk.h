@@ -1,3 +1,9 @@
+/*
+* Copyright (C) Mellanox Technologies Ltd, 2001-2018. ALL RIGHTS RESERVED.
+*
+* See file LICENSE for terms.
+*/
+
 #ifndef __DEVX_DPDK_H__
 #define __DEVX_DPDK_H__
 

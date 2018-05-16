@@ -1,4 +1,11 @@
 #!/usr/bin/env groovy
+#
+# Testing script for Dev, to run from Jenkins CI
+# 
+# Copyright (C) Mellanox Technologies Ltd, 2001-2018. ALL RIGHTS RESERVED.
+#
+# See file LICENSE for terms.
+#
 
 node('master') {
 	deleteDir()

@@ -1,3 +1,9 @@
+/*
+* Copyright (C) Mellanox Technologies Ltd, 2001-2018. ALL RIGHTS RESERVED.
+*
+* See file LICENSE for terms.
+*/
+
 #include <unistd.h>
 #include "infiniband/verbs.h"
 #include "../providers/mlx5/mlx5.h"
