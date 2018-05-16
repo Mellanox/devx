@@ -1,3 +1,9 @@
+/*
+* Copyright (C) Mellanox Technologies Ltd, 2001-2018. ALL RIGHTS RESERVED.
+*
+* See file LICENSE for terms.
+*/
+
 #include <stdlib.h>
 #include <errno.h>
 #include "devx_ioctl.h"

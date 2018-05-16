@@ -1,3 +1,9 @@
+/*
+* Copyright (C) Mellanox Technologies Ltd, 2001-2018. ALL RIGHTS RESERVED.
+*
+* See file LICENSE for terms.
+*/
+
 #ifndef __DEVX_PRIV_H__
 #define __DEVX_PRIV_H__
 

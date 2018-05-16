@@ -1,3 +1,9 @@
+/*
+* Copyright (C) Mellanox Technologies Ltd, 2001-2018. ALL RIGHTS RESERVED.
+*
+* See file LICENSE for terms.
+*/
+
 #define _GNU_SOURCE
 #include <sys/types.h>
 #include <dirent.h>
