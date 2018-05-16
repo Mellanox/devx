@@ -12,6 +12,7 @@ can be activated with minimal to none kernel changes.
 
 ```
 % git clone https://github.com/Mellanox/devx
+% cd devx
 % git modules init
 % git modules update
 % cmake .
