@@ -16,5 +16,5 @@ can be activated with minimal to none kernel changes.
 % git modules update
 % cmake .
 % make
-./test
+% ./test
 ```
