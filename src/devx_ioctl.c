@@ -10,8 +10,8 @@
 #include <sys/ioctl.h>
 
 /* Number of attrs in this and all the link'd buffers */
-unsigned int _ioctl_final_num_attrs(unsigned int num_attrs,
-				   struct ibv_command_buffer *link)
+unsigned int __ioctl_final_num_attrs(unsigned int num_attrs,
+				     struct ibv_command_buffer *link)
 {
 	for (; link; link = link->next)
 		num_attrs += link->next_attr - link->hdr.attrs;

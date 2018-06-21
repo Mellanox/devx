@@ -491,7 +491,8 @@ int poll_cq(uint8_t *cq_buff, uint32_t *cqi, uint32_t *cq_dbr) {
 	return 0;
 }
 
-int poll_eq(uint8_t *eq_buff, uint32_t *eqi) {
+int poll_eq(uint8_t *eq_buff, uint32_t *eqi, int expected) {
+#if HAS_EQ_SUPPORT
 	struct mlx5_eqe *eqe = (struct mlx5_eqe *)(eq_buff + *eqi % EQ_SIZE * sizeof(*eqe));
 	int retry = 1600000;
 	while (--retry && (eqe->owner & 1) ^ !!(*eqi & EQ_SIZE))
@@ -503,15 +504,19 @@ int poll_eq(uint8_t *eq_buff, uint32_t *eqi) {
 	(*eqi)++;
 	asm volatile("" ::: "memory");
 	printf("EQ cq %x\n", be32toh(eqe->data.comp.cqn));
-
 	return 0;
+#else
+	return expected;
+#endif
 }
 
 int arm_eq(uint32_t eq, uint32_t eqi, void *uar_ptr) {
+#if HAS_EQ_SUPPORT
 	uint32_t doorbell = (eqi & 0xffffff) | (eq << 24);
 
 	*(uint32_t *)((uint8_t *)uar_ptr + 0x48) = htobe32(doorbell);
 	asm volatile("" ::: "memory");
+#endif
 	return 0;
 }
 
@@ -578,8 +583,10 @@ TEST(devx, send) {
 	ASSERT_TRUE(pd);
 
 	void *eq_buff;
-	int eq = create_eq(ctx, &eq_buff, uar_id);
-	ASSERT_TRUE(eq);
+	int eq = 0;
+#if HAS_EQ_SUPPORT
+	ASSERT_TRUE(eq = create_eq(ctx, &eq_buff, uar_id));
+#endif
 
 	void *cq_buff;
 	uint32_t *cq_dbr;
@@ -617,17 +624,17 @@ TEST(devx, send) {
 	ASSERT_FALSE(arm_eq(eq, eqi, uar_ptr));
 	ASSERT_FALSE(arm_cq(cq, cqi, cq_dbr, uar_ptr));
 
-	ASSERT_TRUE(poll_eq((uint8_t *)eq_buff, &eqi));
+	ASSERT_TRUE(poll_eq((uint8_t *)eq_buff, &eqi, 1));
 	ASSERT_TRUE(poll_cq((uint8_t *)cq_buff, &cqi, cq_dbr));
 
 	ASSERT_FALSE(recv(rq, &rqi, qp_dbr, mkey, buff, 0x30));
 	ASSERT_FALSE(xmit(sq, &sqi, qp_dbr, mkey, buff + 0x30, 0x30, uar_ptr, qp));
 
-	ASSERT_FALSE(poll_eq((uint8_t *)eq_buff, &eqi));
+	ASSERT_FALSE(poll_eq((uint8_t *)eq_buff, &eqi, 0));
 	ASSERT_FALSE(poll_cq((uint8_t *)cq_buff, &cqi, cq_dbr));
 	ASSERT_FALSE(arm_eq(eq, eqi, uar_ptr));
 	ASSERT_FALSE(arm_cq(cq, cqi, cq_dbr, uar_ptr));
-	ASSERT_FALSE(poll_eq((uint8_t *)eq_buff, &eqi));
+	ASSERT_FALSE(poll_eq((uint8_t *)eq_buff, &eqi, 0));
 	ASSERT_FALSE(poll_cq((uint8_t *)cq_buff, &cqi, cq_dbr));
 	ASSERT_FALSE(arm_eq(eq, eqi, uar_ptr));
 	ASSERT_FALSE(arm_cq(cq, cqi, cq_dbr, uar_ptr));
@@ -691,10 +698,11 @@ int test_td(void *ctx) {
 	return DEVX_GET(alloc_transport_domain_out, out, transport_domain);
 }
 
-int test_tir(void *ctx, int rq, int td);
-int test_tir(void *ctx, int rq, int td) {
+struct devx_obj_handle *test_tir(void *ctx, int rq, int td, int *tir_num);
+struct devx_obj_handle *test_tir(void *ctx, int rq, int td, int *tir_num) {
 	u8 in[DEVX_ST_SZ_BYTES(create_tir_in)]   = {0};
 	u8 out[DEVX_ST_SZ_BYTES(create_tir_out)] = {0};
+	struct devx_obj_handle *tir;
 	void *tirc;
 
 	DEVX_SET(create_tir_in, in, opcode, MLX5_CMD_OP_CREATE_TIR);
@@ -703,16 +711,15 @@ int test_tir(void *ctx, int rq, int td) {
 	DEVX_SET(tirc, tirc, inline_rqn, rq);
 	DEVX_SET(tirc, tirc, transport_domain, td);
 
-	if (!devx_obj_create(ctx, in, sizeof(in), out, sizeof(out)))
-		return 0;
+	tir = devx_obj_create(ctx, in, sizeof(in), out, sizeof(out));
 
-	return DEVX_GET(create_tir_out, out, tirn);
+	*tir_num = DEVX_GET(create_tir_out, out, tirn);
+	return tir;
 }
 
-int test_rule(void *ctx, int tir);
-int test_rule(void *ctx, int tir) {
+int test_rule(void *ctx, struct devx_obj_handle *tir, struct devx_obj_handle **rule);
+int test_rule(void *ctx, struct devx_obj_handle *tir, struct devx_obj_handle **rule) {
 	u8 in[DEVX_ST_SZ_BYTES(fs_rule_add_in)] = {0};
-	struct devx_obj_handle *rule;
 	__be32 src_ip = 0x01020304;
 	__be32 dst_ip = 0x05060708;
 	void *headers_c, *headers_v;
@@ -739,15 +746,10 @@ int test_rule(void *ctx, int tir) {
 			    dst_ipv4_dst_ipv6.ipv4_layout.ipv4),
 			&dst_ip, sizeof(dst_ip));
 
-	DEVX_SET(fs_rule_add_in, in, dest.destination_type, MLX5_FLOW_DESTINATION_TYPE_TIR);
-	DEVX_SET(fs_rule_add_in, in, dest.destination_id, tir);
-
 	DEVX_SET(fs_rule_add_in, in, flow_spec.match_criteria_enable, 1 << MLX5_CREATE_FLOW_GROUP_IN_MATCH_CRITERIA_ENABLE_OUTER_HEADERS);
 
-	rule = devx_fs_rule_add(ctx, in, sizeof(in));
-	if (!rule)
-		return 0;
-	return 1;
+	*rule = devx_fs_rule_add(ctx, in, tir);
+	return !!*rule;
 }
 
 enum fs_flow_table_type {
@@ -761,11 +763,12 @@ enum fs_flow_table_type {
 	FS_FT_MAX_TYPE = FS_FT_SNIFFER_TX,
 };
 
-int create_ft(void *ctx);
-int create_ft(void *ctx)
+struct devx_obj_handle *create_ft(void *ctx, int *ft_num);
+struct devx_obj_handle *create_ft(void *ctx, int *ft_num)
 {
 	uint8_t in[DEVX_ST_SZ_BYTES(create_flow_table_in)] = {0};
 	uint8_t out[DEVX_ST_SZ_BYTES(create_flow_table_out)] = {0};
+	struct devx_obj_handle *ft;
 	void *ftc;
 
 	DEVX_SET(create_flow_table_in, in, opcode, MLX5_CMD_OP_CREATE_FLOW_TABLE);
@@ -776,10 +779,10 @@ int create_ft(void *ctx)
 	DEVX_SET(flow_table_context, ftc, level, 64); // table level
 	DEVX_SET(flow_table_context, ftc, log_size, 0);
 
-	if (!devx_obj_create(ctx, in, sizeof(in), out, sizeof(out)))
-		return 0;
+	ft = devx_obj_create(ctx, in, sizeof(in), out, sizeof(out));
+	*ft_num = DEVX_GET(create_flow_table_out, out, table_id);
 
-	return DEVX_GET(create_flow_table_out, out, table_id);
+	return ft;
 }
 
 int create_fg(void *ctx, int ft);
@@ -838,8 +841,8 @@ int set_fte(void *ctx, int ft, int fg, int tir, struct devx_obj_handle **rule)
 	}
 }
 
-int test_rule_priv(void *ctx, int ft);
-int test_rule_priv(void *ctx, int ft) {
+int test_rule_priv(void *ctx, struct devx_obj_handle *ft);
+int test_rule_priv(void *ctx, struct devx_obj_handle *ft) {
 	u8 in[DEVX_ST_SZ_BYTES(fs_rule_add_in)] = {0};
 	struct devx_obj_handle *rule;
 	__be32 src_ip = 0x01020304;
@@ -868,12 +871,9 @@ int test_rule_priv(void *ctx, int ft) {
 			    dst_ipv4_dst_ipv6.ipv4_layout.ipv4),
 			&dst_ip, sizeof(dst_ip));
 
-	DEVX_SET(fs_rule_add_in, in, dest.destination_type, MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE);
-	DEVX_SET(fs_rule_add_in, in, dest.destination_id, ft);
-
 	DEVX_SET(fs_rule_add_in, in, flow_spec.match_criteria_enable, 1 << MLX5_CREATE_FLOW_GROUP_IN_MATCH_CRITERIA_ENABLE_OUTER_HEADERS);
 
-	rule = devx_fs_rule_add(ctx, in, sizeof(in));
+	rule = devx_fs_rule_add(ctx, in, ft);
 	if (!rule)
 		return 0;
 
@@ -886,8 +886,8 @@ TEST(devx, roce) {
 	void *ctx;
 	int devn = 0;
 	int pd;
-	int cq, rq, td, tir;
-	int ft, fg;
+	int cq, rq, td, tir_num;
+	int ft_num, fg;
 
 	if (getenv("DEVN"))
 		devn = atoi(getenv("DEVN"));
@@ -909,22 +909,26 @@ TEST(devx, roce) {
 	ASSERT_TRUE(rq);
 	td = test_td(ctx);
 	ASSERT_TRUE(td);
-	tir = test_tir(ctx, rq, td);
+	struct devx_obj_handle *tir = test_tir(ctx, rq, td, &tir_num);
 	ASSERT_TRUE(tir);
 
-	ASSERT_TRUE(test_rule(ctx, tir));
-	ft = create_ft(ctx);
+	struct devx_obj_handle *rule1 = NULL;
+	ASSERT_TRUE(test_rule(ctx, tir, &rule1));
+	ASSERT_FALSE(devx_fs_rule_del(rule1));
+
+	struct devx_obj_handle *ft = create_ft(ctx, &ft_num);
 	ASSERT_TRUE(ft);
-	fg = create_fg(ctx,ft);
-	ASSERT_TRUE(fg);
+	fg = create_fg(ctx,ft_num);
 	struct devx_obj_handle *rule = NULL;
-	ASSERT_TRUE(set_fte(ctx,ft,fg,tir,&rule));
+	ASSERT_TRUE(set_fte(ctx,ft_num,fg,tir_num,&rule));
+	ASSERT_TRUE(set_fte(ctx,ft_num,fg,tir_num,&rule));
+
 	ASSERT_TRUE(test_rule_priv(ctx,ft));
 	ASSERT_TRUE(test_rule_priv(ctx,ft));
 
-	int tir2 = test_tir(ctx, rq, td);
-	ASSERT_TRUE(tir2);
-	ASSERT_TRUE(set_fte(ctx,ft,fg,tir2,&rule));
+	int tir2;
+	ASSERT_TRUE(test_tir(ctx, rq, td, &tir2));
+	ASSERT_TRUE(set_fte(ctx,ft_num,fg,tir2,&rule));
 
 	devx_close_device(ctx);
 }
