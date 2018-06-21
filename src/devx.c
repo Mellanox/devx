@@ -10,6 +10,7 @@
 #include <rdma/mlx5_user_ioctl_cmds.h>
 #include "devx.h"
 #include "devx_priv.h"
+#include "devx_prm.h"
 
 int devx_cmd(void *ctx,
 	     void *in, size_t inlen,
@@ -108,9 +109,15 @@ int devx_obj_destroy(struct devx_obj_handle *obj)
 			       MLX5_IB_OBJECT_DEVX_OBJ,
 			       MLX5_IB_METHOD_DEVX_OBJ_DESTROY,
 			       1);
+	int ret;
 
 	fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEVX_OBJ_DESTROY_HANDLE, obj->handle);
-	return execute_ioctl(obj->ctx->cmd_fd, cmd);
+	ret = execute_ioctl(obj->ctx->cmd_fd, cmd);
+
+	if (ret)
+		return ret;
+	free(obj);
+	return 0;
 }
 
 struct devx_obj_handle *devx_umem_reg(void *ctx,
@@ -155,50 +162,138 @@ int devx_umem_dereg(struct devx_obj_handle *obj)
 			       MLX5_IB_OBJECT_DEVX_UMEM,
 			       MLX5_IB_METHOD_DEVX_UMEM_DEREG,
 			       1);
+	int ret;
 
 	fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEVX_UMEM_DEREG_HANDLE, obj->handle);
-	return execute_ioctl(obj->ctx->cmd_fd, cmd);
-}
-
-struct devx_obj_handle *devx_fs_rule_add(void *ctx,
-					 void *in, uint32_t inlen)
-{
-	DECLARE_COMMAND_BUFFER(cmd,
-			       MLX5_IB_OBJECT_DEVX_FS_RULE,
-			       MLX5_IB_METHOD_FS_RULE_DEVX_ADD,
-			       2);
-	struct ib_uverbs_attr *handle;
-	struct devx_obj_handle *obj;
-	int ret = ENOMEM;
-
-	obj = (struct devx_obj_handle *)malloc(sizeof(*obj));
-	if (!obj)
-		goto err;
-	obj->ctx = ctx;
-
-	handle = fill_attr_out_obj(cmd, MLX5_IB_ATTR_ADD_DEVX_FS_RULE_HANDLE);
-	fill_attr_in(cmd, MLX5_IB_ATTR_ADD_DEVX_FS_RULE_CMD_IN, in, inlen);
-
 	ret = execute_ioctl(obj->ctx->cmd_fd, cmd);
 	if (ret)
-		goto err;
-	obj->handle = handle->data;
+		return ret;
+	free(obj);
+	return 0;
+}
 
-	return obj;
+struct devx_fs_rule_handle {
+	struct devx_obj_handle		flow;
+	uint32_t			matcher_handle;
+};
+
+int __matcher_create(struct devx_fs_rule_handle *obj, void* in)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_FLOW_MATCHER,
+			       MLX5_IB_METHOD_FLOW_MATCHER_CREATE,
+			       6);
+	struct ib_uverbs_attr *handle;
+	uint32_t dummy = 0, prio;
+	int ret;
+
+	prio = DEVX_GET(fs_rule_add_in, in, prio);
+
+	handle = fill_attr_out_obj(cmd, MLX5_IB_ATTR_FLOW_MATCHER_CREATE_HANDLE);
+	fill_attr_in(cmd,
+		     MLX5_IB_ATTR_FLOW_MATCHER_MATCH_MASK,
+		     DEVX_ADDR_OF(fs_rule_add_in, in, flow_spec.match_criteria),
+		     DEVX_FLD_SZ_BYTES(fs_rule_add_in, flow_spec.match_criteria));
+	fill_attr_in_enum(cmd,
+			  MLX5_IB_ATTR_FLOW_MATCHER_FLOW_TYPE,
+			  MLX5_IB_FLOW_TYPE_NORMAL,
+			  &prio, sizeof(prio));
+	fill_attr_in(cmd,
+		     MLX5_IB_ATTR_FLOW_MATCHER_MATCH_CRITERIA,
+		     DEVX_ADDR_OF(fs_rule_add_in, in, flow_spec.match_criteria_enable),
+		     DEVX_FLD_SZ_BYTES(fs_rule_add_in, flow_spec.match_criteria_enable));
+	fill_attr_in(cmd,
+		     MLX5_IB_ATTR_FLOW_MATCHER_FLAGS,
+		     &dummy, sizeof(uint32_t));
+	fill_attr_in(cmd,
+		     MLX5_IB_ATTR_FLOW_MATCHER_PORT,
+		     &dummy, sizeof(uint8_t));
+
+	ret = execute_ioctl(obj->flow.ctx->cmd_fd, cmd);
+	if (ret)
+		return ret;
+	obj->matcher_handle = handle->data;
+	return 0;
+}
+
+int __matcher_destroy(struct devx_fs_rule_handle *obj)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_FLOW_MATCHER,
+			       MLX5_IB_METHOD_FLOW_MATCHER_DESTROY,
+			       1);
+	fill_attr_in_obj(cmd,
+			 MLX5_IB_ATTR_FLOW_MATCHER_DESTROY_HANDLE,
+			 obj->matcher_handle);
+	return execute_ioctl(obj->flow.ctx->cmd_fd, cmd);
+}
+
+struct devx_obj_handle *devx_fs_rule_add(void *ctx, void *in,
+					 struct devx_obj_handle *dest)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       UVERBS_OBJECT_FLOW,
+			       MLX5_IB_METHOD_CREATE_FLOW,
+			       4);
+	struct devx_fs_rule_handle *obj;
+	struct ib_uverbs_attr *handle;
+	int ret = ENOMEM;
+
+	obj = (struct devx_fs_rule_handle *)malloc(sizeof(*obj));
+	if (!obj)
+		goto err;
+	obj->flow.ctx = ctx;
+
+	ret = __matcher_create(obj, in);
+	if (ret)
+		goto err;
+
+	handle = fill_attr_out_obj(cmd, MLX5_IB_ATTR_CREATE_FLOW_HANDLE);
+	fill_attr_in(cmd,
+		     MLX5_IB_ATTR_CREATE_FLOW_MATCH_VALUE,
+		     DEVX_ADDR_OF(fs_rule_add_in, in, flow_spec.match_value),
+		     DEVX_FLD_SZ_BYTES(fs_rule_add_in, flow_spec.match_value));
+	fill_attr_in_obj(cmd,
+			 MLX5_IB_ATTR_CREATE_FLOW_MATCHER,
+			 obj->matcher_handle);
+	fill_attr_in_obj(cmd,
+			 MLX5_IB_ATTR_CREATE_FLOW_DEST_DEVX,
+			 dest->handle);
+
+	ret = execute_ioctl(obj->flow.ctx->cmd_fd, cmd);
+	if (ret)
+		goto err_cmd;
+	obj->flow.handle = handle->data;
+
+	return &obj->flow;
+
+err_cmd:
+	__matcher_destroy(obj);
 err:
 	free(obj);
 	errno = ret;
 	return NULL;
 }
 
-int devx_fs_rule_del(struct devx_obj_handle *obj)
+int devx_fs_rule_del(struct devx_obj_handle *fobj)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
-			       MLX5_IB_OBJECT_DEVX_FS_RULE,
-			       MLX5_IB_METHOD_FS_RULE_DEVX_DEL,
+			       UVERBS_OBJECT_FLOW,
+			       MLX5_IB_METHOD_DESTROY_FLOW,
 			       1);
+	struct devx_fs_rule_handle *obj = (void *)fobj;
+	int ret;
 
-	fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEL_DEVX_FS_RULE_HANDLE, obj->handle);
-	return execute_ioctl(obj->ctx->cmd_fd, cmd);
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_DESTROY_FLOW_HANDLE, obj->flow.handle);
+	ret = execute_ioctl(obj->flow.ctx->cmd_fd, cmd);
+	if (ret)
+		return ret;
+
+	ret =__matcher_destroy(obj);
+	if (ret)
+		return ret;
+
+	free(obj);
+	return 0;
 }
 

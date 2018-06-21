@@ -35,6 +35,20 @@ static inline uint64_t ioctl_ptr_to_u64(const void *ptr)
 #endif
 }
 
+static inline void _scrub_ptr_attr(void **ptr)
+{
+#if UINTPTR_MAX == UINT64_MAX
+	/* Do nothing */
+#else
+	RDMA_UAPI_PTR(void *, data) *scrub_data;
+
+	scrub_data = container_of(ptr, typeof(*scrub_data), data);
+	scrub_data->data_data_u64 = ioctl_ptr_to_u64(scrub_data->data);
+#endif
+}
+
+#define scrub_ptr_attr(ptr) _scrub_ptr_attr((void **)(&ptr))
+
 /*
  * The command buffer is organized as a linked list of blocks of attributes.
  * Each stack frame allocates its block and then calls up toward to core code
@@ -82,8 +96,14 @@ enum {_UHW_NO_INDEX = 0xFF};
 	  sizeof(struct ibv_command_buffer) - 1) /                             \
 	 sizeof(struct ibv_command_buffer))
 
-unsigned int _ioctl_final_num_attrs(unsigned int num_attrs,
-				    struct ibv_command_buffer *link);
+unsigned int __ioctl_final_num_attrs(unsigned int num_attrs,
+				     struct ibv_command_buffer *link);
+
+/* If the user doesn't provide a link then don't create a VLA */
+#define _ioctl_final_num_attrs(_num_attrs, _link)                              \
+	((__builtin_constant_p(!(_link)) && !(_link))                          \
+		 ? (_num_attrs)                                                \
+		 : __ioctl_final_num_attrs(_num_attrs, _link))
 
 #define _COMMAND_BUFFER_INIT(_hdr, _object_id, _method_id, _num_attrs, _link)  \
 	((struct ibv_command_buffer){                                          \
@@ -200,6 +220,7 @@ fill_attr_in_obj(struct ibv_command_buffer *cmd, uint16_t attr_id, uint32_t idr)
 {
 	struct ib_uverbs_attr *attr = _ioctl_next_attr(cmd, attr_id);
 
+	/* UVERBS_ATTR_TYPE_IDR uses a 64 bit value for the idr # */
 	attr->data = idr;
 	return attr;
 }
@@ -208,6 +229,13 @@ static inline struct ib_uverbs_attr *
 fill_attr_out_obj(struct ibv_command_buffer *cmd, uint16_t attr_id)
 {
 	return fill_attr_in_obj(cmd, attr_id, 0);
+}
+
+static inline uint32_t read_attr_obj(uint16_t attr_id,
+				     struct ib_uverbs_attr *attr)
+{
+	assert(attr->attr_id == attr_id);
+	return attr->data;
 }
 
 /* Send attributes of kernel type UVERBS_ATTR_TYPE_PTR_IN */
@@ -252,7 +280,7 @@ fill_attr_in_uint32(struct ibv_command_buffer *cmd, uint16_t attr_id,
 	struct ib_uverbs_attr *attr = _ioctl_next_attr(cmd, attr_id);
 
 	attr->len = sizeof(data);
-	attr->data = data;
+	memcpy(&attr->data, &data, sizeof(data));
 
 	return attr;
 }
@@ -266,17 +294,25 @@ fill_attr_in_fd(struct ibv_command_buffer *cmd, uint16_t attr_id, int fd)
 		return NULL;
 
 	attr = _ioctl_next_attr(cmd, attr_id);
+	/* UVERBS_ATTR_TYPE_FD uses a 64 bit value for the idr # */
 	attr->data = fd;
 	return attr;
 }
 
 static inline struct ib_uverbs_attr *
-fill_attr_out_fd(struct ibv_command_buffer *cmd, uint16_t attr_id, int fd __attribute__((__unused__)))
+fill_attr_out_fd(struct ibv_command_buffer *cmd, uint16_t attr_id, int fd)
 {
 	struct ib_uverbs_attr *attr = _ioctl_next_attr(cmd, attr_id);
 
 	attr->data = 0;
 	return attr;
+}
+
+static inline int read_attr_fd(uint16_t attr_id, struct ib_uverbs_attr *attr)
+{
+	assert(attr->attr_id == attr_id);
+	/* The kernel cannot fail to create a FD here, it never returns -1 */
+	return attr->data;
 }
 
 /* Send attributes of kernel type UVERBS_ATTR_TYPE_PTR_OUT */
@@ -288,7 +324,7 @@ fill_attr_out(struct ibv_command_buffer *cmd, uint16_t attr_id, void *data,
 
 	assert(len <= UINT16_MAX);
 	attr->len = len;
-	attr->data = (uintptr_t)data;
+	attr->data = ioctl_ptr_to_u64(data);
 
 	return attr;
 }
@@ -300,6 +336,18 @@ static inline size_t __check_divide(size_t val, unsigned int div)
 {
 	assert(val % div == 0);
 	return val / div;
+}
+
+static inline struct ib_uverbs_attr *
+fill_attr_in_enum(struct ibv_command_buffer *cmd, uint16_t attr_id,
+		  uint8_t elem_id, const void *data, size_t len)
+{
+	struct ib_uverbs_attr *attr;
+
+	attr = fill_attr_in(cmd, attr_id, data, len);
+	attr->attr_data.enum_data.elem_id = elem_id;
+
+	return attr;
 }
 
 #endif
