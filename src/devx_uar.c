@@ -4,6 +4,7 @@
 * See file LICENSE for terms.
 */
 
+#include <stdlib.h>
 #include <sys/mman.h>
 #include <errno.h>
 #include "devx_ioctl.h"

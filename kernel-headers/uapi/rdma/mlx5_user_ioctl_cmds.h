@@ -36,11 +36,6 @@
 #include <linux/types.h>
 #include <rdma/ib_user_ioctl_cmds.h>
 
-enum {
-	MLX5_IB_OBJECT_DEVX_START = (1U << UVERBS_ID_NS_SHIFT) + 0,
-	MLX5_IB_OBJECT_FLOW_START = (1U << UVERBS_ID_NS_SHIFT) + 32,
-};
-
 enum mlx5_ib_create_flow_action_attrs {
 	/* This attribute belong to the driver namespace */
 	MLX5_IB_ATTR_CREATE_FLOW_ACTION_FLAGS = (1U << UVERBS_ID_NS_SHIFT),
@@ -118,19 +113,17 @@ enum mlx5_ib_devx_umem_methods {
 	MLX5_IB_METHOD_DEVX_UMEM_DEREG,
 };
 
-enum mlx5_ib_devx_objects {
+enum mlx5_ib_objects {
 	MLX5_IB_OBJECT_DEVX = (1U << UVERBS_ID_NS_SHIFT),
 	MLX5_IB_OBJECT_DEVX_OBJ,
 	MLX5_IB_OBJECT_DEVX_UMEM,
-	MLX5_IB_OBJECT_DEVX_LAST
+	MLX5_IB_OBJECT_FLOW_MATCHER,
 };
 
 enum mlx5_ib_flow_matcher_create_attrs {
 	MLX5_IB_ATTR_FLOW_MATCHER_CREATE_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
 	MLX5_IB_ATTR_FLOW_MATCHER_MATCH_MASK,
 	MLX5_IB_ATTR_FLOW_MATCHER_FLOW_TYPE,
-	MLX5_IB_ATTR_FLOW_MATCHER_FLAGS,
-	MLX5_IB_ATTR_FLOW_MATCHER_PORT,
 	MLX5_IB_ATTR_FLOW_MATCHER_MATCH_CRITERIA,
 };
 
@@ -141,10 +134,6 @@ enum mlx5_ib_flow_matcher_destroy_attrs {
 enum mlx5_ib_flow_matcher_methods {
 	MLX5_IB_METHOD_FLOW_MATCHER_CREATE = (1U << UVERBS_ID_NS_SHIFT),
 	MLX5_IB_METHOD_FLOW_MATCHER_DESTROY,
-};
-
-enum mlx5_ib_flow_objects {
-	MLX5_IB_OBJECT_FLOW_MATCHER = MLX5_IB_OBJECT_FLOW_START,
 };
 
 #define MLX5_IB_DW_MATCH_PARAM 0x80
@@ -166,16 +155,13 @@ enum mlx5_ib_create_flow_attrs {
 	MLX5_IB_ATTR_CREATE_FLOW_DEST_QP,
 	MLX5_IB_ATTR_CREATE_FLOW_DEST_DEVX,
 	MLX5_IB_ATTR_CREATE_FLOW_MATCHER,
-	MLX5_IB_ATTR_CREATE_FLOW_DROP,
-	MLX5_IB_ATTR_CREATE_FLOW_COUNTER,
-	MLX5_IB_ATTR_CREATE_FLOW_TAG,
 };
 
 enum mlx5_ib_destoy_flow_attrs {
 	MLX5_IB_ATTR_DESTROY_FLOW_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
 };
 
-enum mlx5_ib_methods {
+enum mlx5_ib_flow_methods {
 	MLX5_IB_METHOD_CREATE_FLOW = (1U << UVERBS_ID_NS_SHIFT),
 	MLX5_IB_METHOD_DESTROY_FLOW,
 };
