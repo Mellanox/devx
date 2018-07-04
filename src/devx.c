@@ -177,7 +177,9 @@ struct devx_fs_rule_handle {
 	uint32_t			matcher_handle;
 };
 
-int __matcher_create(struct devx_fs_rule_handle *obj, void* in)
+#include<stdio.h>
+
+static int __matcher_create(struct devx_fs_rule_handle *obj, void* in)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_FLOW_MATCHER,
@@ -216,7 +218,7 @@ int __matcher_create(struct devx_fs_rule_handle *obj, void* in)
 	return 0;
 }
 
-int __matcher_destroy(struct devx_fs_rule_handle *obj)
+static int __matcher_destroy(struct devx_fs_rule_handle *obj)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_FLOW_MATCHER,
