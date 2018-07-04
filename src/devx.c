@@ -177,14 +177,14 @@ struct devx_fs_rule_handle {
 	uint32_t			matcher_handle;
 };
 
-int __matcher_create(struct devx_fs_rule_handle *obj, void* in)
+static int __matcher_create(struct devx_fs_rule_handle *obj, void* in)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_FLOW_MATCHER,
 			       MLX5_IB_METHOD_FLOW_MATCHER_CREATE,
 			       6);
 	struct ib_uverbs_attr *handle;
-	uint32_t dummy = 0, prio;
+	uint16_t prio;
 	int ret;
 
 	prio = DEVX_GET(fs_rule_add_in, in, prio);
@@ -202,12 +202,6 @@ int __matcher_create(struct devx_fs_rule_handle *obj, void* in)
 		     MLX5_IB_ATTR_FLOW_MATCHER_MATCH_CRITERIA,
 		     DEVX_ADDR_OF(fs_rule_add_in, in, flow_spec.match_criteria_enable),
 		     DEVX_FLD_SZ_BYTES(fs_rule_add_in, flow_spec.match_criteria_enable));
-	fill_attr_in(cmd,
-		     MLX5_IB_ATTR_FLOW_MATCHER_FLAGS,
-		     &dummy, sizeof(uint32_t));
-	fill_attr_in(cmd,
-		     MLX5_IB_ATTR_FLOW_MATCHER_PORT,
-		     &dummy, sizeof(uint8_t));
 
 	ret = execute_ioctl(obj->flow.ctx->cmd_fd, cmd);
 	if (ret)
@@ -216,7 +210,7 @@ int __matcher_create(struct devx_fs_rule_handle *obj, void* in)
 	return 0;
 }
 
-int __matcher_destroy(struct devx_fs_rule_handle *obj)
+static int __matcher_destroy(struct devx_fs_rule_handle *obj)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_FLOW_MATCHER,
