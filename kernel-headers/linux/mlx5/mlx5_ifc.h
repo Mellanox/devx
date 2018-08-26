@@ -101,6 +101,7 @@ enum {
 	MLX5_CMD_OP_QUERY_QP                      = 0x50b,
 	MLX5_CMD_OP_SQD_RTS_QP                    = 0x50c,
 	MLX5_CMD_OP_INIT2INIT_QP                  = 0x50e,
+	MLX5_CMD_OPCODE_SEND_QP_NVMF_CC           = 0x513,
 	MLX5_CMD_OP_CREATE_PSV                    = 0x600,
 	MLX5_CMD_OP_DESTROY_PSV                   = 0x601,
 	MLX5_CMD_OP_CREATE_SRQ                    = 0x700,
@@ -9213,6 +9214,150 @@ struct mlx5_ifc_device_emulation_qp_to_nvme_map_bits {
 	u8         nvme_sqe_doorbell_offset[0x20];
 
 	u8         reserved_at_140[0x6c0];
+};
+
+enum {
+	MLX5_NVME_SQ_OFFLOAD_TYPE_SQE = 0x0,
+	MLX5_NVME_SQ_OFFLOAD_TYPE_DOORBELL_ONLY = 0x1,
+	MLX5_NVME_SQ_OFFLOAD_TYPE_NVMF_CC = 0x2
+};
+
+enum {
+	MLX5_NVME_CQ_OFFLOAD_TYPE_CQE = 0x0,
+	MLX5_NVME_CQ_OFFLOAD_TYPE_NVMF_CQE_CC = 0x2
+};
+
+struct mlx5_ifc_nvme_namespace_bits {
+	uint8_t    src_nsid[0x20];
+
+	uint8_t    dst_nsid[0x20];
+
+	uint8_t    reserved_at_40[0x8];
+	uint8_t    lba_size[0x8];
+	uint8_t    metadata_size[0x10];
+
+	uint8_t    reserved_at_60[0x20];
+};
+
+struct mlx5_ifc_nvme_cq_bits {
+    uint8_t    modify_field_select[0x40];
+
+    uint8_t    reserved_at_40[0x10];
+    uint8_t    function_id[0x10];
+
+    uint8_t    reserved_at_60[0x20];
+
+    uint8_t    reserved_at_80[0x4];
+    uint8_t    offload_type[0x4];
+    uint8_t    reserved_at_88[0x18];
+
+    uint8_t    reserved_at_a0[0x18];
+    uint8_t    msix_vector[0x8];
+
+    uint8_t    nvme_base_addr[0x40];
+
+    uint8_t    reserved_at_100[0x8];
+    uint8_t    nvme_log_entry_size[0x8];
+    uint8_t    nvme_num_of_entries[0x10];
+
+    uint8_t    nvme_doorbell_offset[0x20];
+
+    uint8_t    reserved_at_140[0x6c0];
+};
+
+struct mlx5_ifc_nvme_sq_bits {
+    uint8_t    modify_field_select[0x40];
+
+    uint8_t    reserved_at_40[0x10];
+    uint8_t    function_id[0x10];
+
+    uint8_t    reserved_at_60[0x20];
+
+    uint8_t    reserved_at_80[0x4];
+    uint8_t    offload_type[0x4];
+    uint8_t    qpn[0x18];
+
+    uint8_t    nvme_cq_id[0x10];
+    uint8_t    reserved_at_b0[0x3];
+    uint8_t    log_nvme_page_size[0x5];
+    uint8_t    msix_vector[0x8];
+
+    uint8_t    nvme_base_addr[0x40];
+
+    uint8_t    max_transaction_size[0x8];
+    uint8_t    nvme_log_entry_size[0x8];
+    uint8_t    nvme_num_of_entries[0x10];
+
+    uint8_t    nvme_doorbell_offset[0x20];
+
+    uint8_t    mkey_buffer_umem_offset[0x40];
+
+    uint8_t    mkey_buffer_umem_id[0x20];
+
+    uint8_t    reserved_at_1a0[0x640];
+
+    uint8_t    reserved_at_7e0[0x10];
+    uint8_t    num_of_namespaces[0x10];
+
+    struct mlx5_ifc_nvme_namespace_bits nvme_namespace[0];
+};
+
+struct mlx5_ifc_nvmf_cc_response_bits {
+    uint8_t    response_capsule[4][0x20];
+
+    uint8_t    reserved_at_80[0x20];
+
+    uint8_t    reserved_at_a0[0x1];
+    uint8_t    event_on_behalf[0x1];
+    uint8_t    reserved_at_a2[0xe];
+    uint8_t    function_id[0x10];
+
+    uint8_t    reserved_at_c0[0x8];
+    uint8_t    qpn[0x18];
+};
+
+struct mlx5_ifc_send_qp_nvmf_cc_in_bits {
+    uint8_t    opcode[0x10];
+    uint8_t    uid[0x10];
+
+    uint8_t    reserved_at_20[0x10];
+    uint8_t    op_mod[0x10];
+
+    uint8_t    reserved_at_40[0x8];
+    uint8_t    qpn[0x18];
+
+    uint8_t    reserved_at_60[0x1];
+    uint8_t    cmd_on_behalf[0x1];
+    uint8_t    reserved_at_62[0xe];
+    uint8_t    function_id[0x10];
+
+    uint8_t    reserved_at_80[0x10];
+    uint8_t    ext_data_length[0x10];
+
+    uint8_t    ext_data_umem_id[0x20];
+
+    uint8_t    ext_data_umem_offset[0x40];
+
+    uint8_t    reserved_at_100[0x100];
+
+    uint8_t    nvmf_cc[16][0x20];
+};
+
+struct mlx5_ifc_send_qp_nvmf_cc_out_bits {
+    uint8_t    status[0x8];
+    uint8_t    reserved_at_8[0x18];
+
+    uint8_t    syndrome[0x20];
+
+    uint8_t    reserved_at_40[0x8];
+    uint8_t    qpn[0x18];
+
+    uint8_t    reserved_at_60[0x20];
+};
+
+enum {
+        MLX5_OBJ_TYPE_NVME_QP = 0x0007,
+        MLX5_OBJ_TYPE_NVME_CQ = 0x0009
 };
 
 #endif /* MLX5_IFC_H */
