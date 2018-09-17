@@ -223,7 +223,8 @@ static int __matcher_destroy(struct devx_fs_rule_handle *obj)
 }
 
 struct devx_obj_handle *devx_fs_rule_add(void *ctx, void *in,
-					 struct devx_obj_handle *dest)
+					 struct devx_obj_handle *dest,
+				         uint32_t vport)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       UVERBS_OBJECT_FLOW,
@@ -250,9 +251,14 @@ struct devx_obj_handle *devx_fs_rule_add(void *ctx, void *in,
 	fill_attr_in_obj(cmd,
 			 MLX5_IB_ATTR_CREATE_FLOW_MATCHER,
 			 obj->matcher_handle);
-	fill_attr_in_obj(cmd,
-			 MLX5_IB_ATTR_CREATE_FLOW_DEST_DEVX,
-			 dest->handle);
+	if (dest) {
+		fill_attr_in_obj(cmd,
+			         MLX5_IB_ATTR_CREATE_FLOW_DEST_DEVX,
+				 dest->handle);
+	} else {
+		fill_attr_in(cmd, MLX5_IB_ATTR_CREATE_FLOW_DEST_VPORT, 
+			     &vport, sizeof(vport));
+	}
 
 	ret = execute_ioctl(obj->flow.ctx->cmd_fd, cmd);
 	if (ret)
