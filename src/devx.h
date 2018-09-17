@@ -55,9 +55,9 @@ struct devx_obj_handle *devx_umem_reg(void *ctx,
 				      uint32_t *id);
 int devx_umem_dereg(struct devx_obj_handle *obj);
 
-struct devx_obj_handle *devx_fs_rule_add(void *ctx,
-					 void *in,
-					 struct devx_obj_handle *dest);
+struct devx_obj_handle *devx_fs_rule_add(void *ctx, void *in,
+					 struct devx_obj_handle *dest,
+				         uint32_t vport);
 int devx_fs_rule_del(struct devx_obj_handle *obj);
 
 void *devx_alloc_dbrec(void *ctx, uint32_t *mem_id, size_t *off);

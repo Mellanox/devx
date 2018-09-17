@@ -748,7 +748,7 @@ int test_rule(void *ctx, struct devx_obj_handle *tir, struct devx_obj_handle **r
 
 	DEVX_SET(fs_rule_add_in, in, flow_spec.match_criteria_enable, 1 << MLX5_CREATE_FLOW_GROUP_IN_MATCH_CRITERIA_ENABLE_OUTER_HEADERS);
 
-	*rule = devx_fs_rule_add(ctx, in, tir);
+	*rule = devx_fs_rule_add(ctx, in, tir, 0);
 	return !!*rule;
 }
 
@@ -873,7 +873,7 @@ int test_rule_priv(void *ctx, struct devx_obj_handle *ft) {
 
 	DEVX_SET(fs_rule_add_in, in, flow_spec.match_criteria_enable, 1 << MLX5_CREATE_FLOW_GROUP_IN_MATCH_CRITERIA_ENABLE_OUTER_HEADERS);
 
-	rule = devx_fs_rule_add(ctx, in, ft);
+	rule = devx_fs_rule_add(ctx, in, ft, 0);
 	if (!rule)
 		return 0;
 
@@ -931,6 +931,35 @@ TEST(devx, roce) {
 	ASSERT_TRUE(set_fte(ctx,ft_num,fg,tir2,&rule));
 
 	devx_close_device(ctx);
+}
+
+TEST(devx, rule_qp) {
+	int num;
+	struct devx_device **list = devx_get_device_list(&num);
+	void *ctx;
+	int devn = 0;
+	void *mask, *val;
+	u8 in[DEVX_ST_SZ_BYTES(fs_rule_add_in)] = {0};
+
+	if (getenv("DEVN"))
+		devn = atoi(getenv("DEVN"));
+
+	ASSERT_GT(num, devn);
+	ctx = devx_open_device(list[devn]);
+	ASSERT_TRUE(ctx);
+	devx_free_device_list(list);
+
+	DEVX_SET(fs_rule_add_in, in, prio, -1);
+
+	mask = DEVX_ADDR_OF(fs_rule_add_in, in, flow_spec.match_criteria.misc_parameters);
+	val = DEVX_ADDR_OF(fs_rule_add_in, in, flow_spec.match_value.misc_parameters);
+
+	DEVX_SET(fte_match_set_misc, mask, bth_dst_qp, 0xffffff);
+	DEVX_SET(fte_match_set_misc, val, bth_dst_qp, 0x100);
+
+	DEVX_SET(fs_rule_add_in, in, flow_spec.match_criteria_enable, 1 << MLX5_CREATE_FLOW_GROUP_IN_MATCH_CRITERIA_ENABLE_MISC_PARAMETERS);
+
+	ASSERT_TRUE(devx_fs_rule_add(ctx, in, NULL, 0));
 }
 
 #ifdef DEVX_VERBS_MIX
