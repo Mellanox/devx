@@ -3418,7 +3418,10 @@ struct mlx5_ifc_set_roce_address_in_bits {
 	u8         reserved_at_50[0xc];
 	u8	   vhca_port_num[0x4];
 
-	u8         reserved_at_60[0x20];
+	u8         reserved_at_60[0x1];
+	u8         cmd_on_behalf[0x1];
+	u8         reserved_at_62[0xe];
+	u8         function_id[0x10];
 
 	struct mlx5_ifc_roce_addr_layout_bits roce_address;
 };
