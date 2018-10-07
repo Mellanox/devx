@@ -69,6 +69,9 @@ struct mlx5_ifc_pas_umem_bits {
 	__DEVX_SET64(typ, p, fld, v); \
 } while (0)
 
+#define MLX5_GET64(typ, p, fld) \
+	be64toh(*((__be64 *)(p) + __devx_64_off(typ, fld)))
+
 #define DEVX_SET_TO_ONES(typ, p, fld) do { \
 	BUILD_BUG_ON(__devx_st_sz_bits(typ) % 32);	       \
 	*((__be32 *)(p) + __devx_dw_off(typ, fld)) = \
