@@ -2839,7 +2839,7 @@ struct mlx5_ifc_mkc_bits {
 	u8         translations_octword_size[0x20];
 
 	u8         reserved_at_1c0[0x1b];
-	u8         log_page_size[0x5];
+	u8         log_entity_size[0x5];
 
 	u8         reserved_at_1e0[0x20];
 };
@@ -6958,7 +6958,10 @@ struct mlx5_ifc_create_mkey_in_bits {
 	u8         reserved_at_40[0x20];
 
 	u8         pg_access[0x1];
-	u8         reserved_at_61[0x1f];
+        u8         mkey_umem_valid[0x1];
+        u8         cmd_on_behalf[0x1];
+        u8         reserved_at_63[0xd];
+        u8         function_id[0x10];
 
 	struct mlx5_ifc_mkc_bits memory_key_mkey_entry;
 
