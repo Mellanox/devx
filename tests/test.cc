@@ -87,7 +87,7 @@ int reg_mr(void *ctx, int pd, void *buff, size_t size) {
 	DEVX_SET64(create_mkey_in, in, memory_key_mkey_entry.len, size);
 	DEVX_SET(create_mkey_in, in, memory_key_mkey_entry.pd, pd);
 	DEVX_SET(create_mkey_in, in, memory_key_mkey_entry.translations_octword_size, 1);
-	DEVX_SET(create_mkey_in, in, memory_key_mkey_entry.log_page_size, 12);
+	DEVX_SET(create_mkey_in, in, memory_key_mkey_entry.log_entity_size, 12);
 	DEVX_SET(create_mkey_in, in, memory_key_mkey_entry.qpn, 0xffffff);
 	DEVX_SET(create_mkey_in, in, memory_key_mkey_entry.mkey_7_0, 0x42);
 	DEVX_SET(create_mkey_in, in, translations_octword_actual_size, 1);
