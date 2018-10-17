@@ -3353,7 +3353,7 @@ struct mlx5_ifc_sqerr2rts_qp_in_bits {
 
 	u8         reserved_at_60[0x1];
 	u8         cmd_on_behalf[0x1];
-	u8         reserved_at_42[0xe];
+	u8         reserved_at_62[0xe];
 	u8         function_id[0x10];
 
 	u8         opt_param_mask[0x20];
@@ -3386,7 +3386,7 @@ struct mlx5_ifc_sqd2rts_qp_in_bits {
 
 	u8         reserved_at_60[0x1];
 	u8         cmd_on_behalf[0x1];
-	u8         reserved_at_42[0xe];
+	u8         reserved_at_62[0xe];
 	u8         function_id[0x10];
 
 	u8         opt_param_mask[0x20];
@@ -3597,7 +3597,7 @@ struct mlx5_ifc_rts2rts_qp_in_bits {
 
 	u8         reserved_at_60[0x1];
 	u8         cmd_on_behalf[0x1];
-	u8         reserved_at_42[0xe];
+	u8         reserved_at_62[0xe];
 	u8         function_id[0x10];
 
 	u8         opt_param_mask[0x20];
@@ -3630,7 +3630,7 @@ struct mlx5_ifc_rtr2rts_qp_in_bits {
 
 	u8         reserved_at_60[0x1];
 	u8         cmd_on_behalf[0x1];
-	u8         reserved_at_42[0xe];
+	u8         reserved_at_62[0xe];
 	u8         function_id[0x10];
 
 	u8         opt_param_mask[0x20];
@@ -3663,7 +3663,7 @@ struct mlx5_ifc_rst2init_qp_in_bits {
 
 	u8         reserved_at_60[0x1];
 	u8         cmd_on_behalf[0x1];
-	u8         reserved_at_42[0xe];
+	u8         reserved_at_62[0xe];
 	u8         function_id[0x10];
 
 	u8         opt_param_mask[0x20];
@@ -4138,7 +4138,7 @@ struct mlx5_ifc_query_qp_in_bits {
 
 	u8         reserved_at_60[0x1];
 	u8         cmd_on_behalf[0x1];
-	u8         reserved_at_42[0xe];
+	u8         reserved_at_62[0xe];
 	u8         function_id[0x10];
 };
 
@@ -5765,7 +5765,7 @@ struct mlx5_ifc_init2rtr_qp_in_bits {
 
 	u8         reserved_at_60[0x1];
 	u8         cmd_on_behalf[0x1];
-	u8         reserved_at_42[0xe];
+	u8         reserved_at_62[0xe];
 	u8         function_id[0x10];
 
 	u8         opt_param_mask[0x20];
@@ -5798,7 +5798,7 @@ struct mlx5_ifc_init2init_qp_in_bits {
 
 	u8         reserved_at_60[0x1];
 	u8         cmd_on_behalf[0x1];
-	u8         reserved_at_42[0xe];
+	u8         reserved_at_62[0xe];
 	u8         function_id[0x10];
 
 	u8         opt_param_mask[0x20];
@@ -6216,7 +6216,7 @@ struct mlx5_ifc_destroy_qp_in_bits {
 
 	u8         reserved_at_60[0x1];
 	u8         cmd_on_behalf[0x1];
-	u8         reserved_at_42[0xe];
+	u8         reserved_at_62[0xe];
 	u8         function_id[0x10];
 };
 
@@ -6886,7 +6886,7 @@ struct mlx5_ifc_create_qp_in_bits {
 
 	u8         reserved_at_60[0x1];
 	u8         cmd_on_behalf[0x1];
-	u8         reserved_at_42[0xe];
+	u8         reserved_at_62[0xe];
 	u8         function_id[0x10];
 
 	u8         opt_param_mask[0x20];
