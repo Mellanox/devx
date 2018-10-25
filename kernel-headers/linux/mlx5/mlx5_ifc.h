@@ -6236,10 +6236,11 @@ struct mlx5_ifc_destroy_psv_in_bits {
 	u8         opcode[0x10];
 	u8         uid[0x10];
 
-	u8         reserved_at_20[0x10];
+	u8         function_id[0x10];
 	u8         op_mod[0x10];
 
-	u8         reserved_at_40[0x8];
+	u8         reserved_at_40[0x7];
+	u8         cmd_on_behalf[0x1];
 	u8         psvn[0x18];
 
 	u8         reserved_at_60[0x20];
@@ -6932,11 +6933,12 @@ struct mlx5_ifc_create_psv_in_bits {
 	u8         opcode[0x10];
 	u8         uid[0x10];
 
-	u8         reserved_at_20[0x10];
+	u8         function_id[0x10];
 	u8         op_mod[0x10];
 
 	u8         num_psv[0x4];
-	u8         reserved_at_44[0x4];
+	u8         reserved_at_44[0x3];
+	u8         cmd_on_behalf[0x1];
 	u8         pd[0x18];
 
 	u8         reserved_at_60[0x20];
