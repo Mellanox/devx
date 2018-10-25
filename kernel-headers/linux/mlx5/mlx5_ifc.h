@@ -958,7 +958,7 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         reserved_at_213[0x1];
 	u8         wq_signature[0x1];
 	u8         sctr_data_cqe[0x1];
-	u8         reserved_at_216[0x1];
+	u8         bsf_in_create_mkey[0x1];
 	u8         sho[0x1];
 	u8         tph[0x1];
 	u8         rf[0x1];
@@ -6979,9 +6979,12 @@ struct mlx5_ifc_create_mkey_in_bits {
 
 	u8         mkey_umem_offset[0x40];
 
-	u8         reserved_at_380[0x500];
+	u8         reserved_at_380[0x10];
+	u8         bsf_octword_actual_size[0x10];
 
-	u8         klm_pas_mtt[0][0x20];
+	u8         reserved_at_3a0[0x4e0];
+
+	u8         klm_pas_mtt_bsf[0][0x20];
 };
 
 struct mlx5_ifc_create_flow_table_out_bits {
