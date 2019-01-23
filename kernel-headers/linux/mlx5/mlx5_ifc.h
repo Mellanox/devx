@@ -2326,14 +2326,21 @@ struct mlx5_ifc_roce_addr_layout_bits {
 };
 
 struct mlx5_ifc_emulation_cap_bits {
-	u8         nvme_offload_type_doorbell_only[0x1];
-	u8         nvme_offload_type_sqe[0x1];
-	u8         reserved_at_0[0x1e];
+        u8         nvme_offload_type_sqe[0x1];
+        u8         nvme_offload_type_doorbell_only[0x1];
+        u8         nvme_offload_type_command_capsule[0x1];
+        u8         log_max_nvme_offload_namespaces[0x4];
+        u8         reserved_at_7[0x19];
 
 	u8         reserved_at_20[0x10];
 	u8         registers_size[0x10];
 
-	u8         reserved_at_40[0x7c0];
+        u8         reserved_at_40[0x14];
+        u8         log_max_emulated_sq[0x4];
+        u8         reserved_at_58[0x4];
+        u8         log_max_emulated_cq[0x4];
+
+	u8         reserved_at_60[0x7a0];
 };
 
 union mlx5_ifc_hca_cap_union_bits {
